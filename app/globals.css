@@ -1,26 +1,244 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
+@custom-variant dark (&:is(.dark *));
+
+/* ── Desk tokens ─────────────────────────────────────────────────────
+   Same token structure and UI language as ServiceOps; only the palette
+   is Desk's. Teal marks actions, links and the active state; text uses
+   the Desk depth navy; the sidebar and table headers sit on Desk tint. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --desk-depth: #0f2f3f;
+  --desk: #0d9488;
+  --desk-action: #14b8a6;
+  --desk-hover: #2dd4bf;
+  --desk-soft: #99f6e4;
+  --desk-tint: #f0fdfa;
+  --desk-surface: #f8fffe;
+  --desk-10: rgb(13 148 136 / 0.1);
+  --desk-depth-10: rgb(15 47 63 / 0.08);
+  /* Pressed / hover fill for teal buttons — a blend of two Desk colours. */
+  --desk-press: color-mix(in srgb, var(--desk) 82%, var(--desk-depth));
+
+  --sidebar-w: 260px;
+  --header-h: 72px;
+
+  --ink: var(--desk-depth);
+  --ink-body: #3a4d55;
+  --ink-muted: #5e6f76;
+  --ink-faint: #94a3a8;
+  --border-color: #e3e9e9;
+  --border-soft: #eef2f2;
+  --bg-page: #ffffff;
+  --bg-card: #ffffff;
+  --bg-sidebar: var(--desk-tint);
+  --card-shadow: 0 1px 2px rgb(15 47 63 / 0.04), 0 8px 24px rgb(15 47 63 / 0.05);
+  --pop-shadow: 0 12px 40px rgb(15 47 63 / 0.12);
+
+  /* shadcn/ui tokens mapped onto the Desk palette */
+  --background: var(--bg-page);
+  --foreground: var(--ink);
+  --card: var(--bg-card);
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--desk);
+  --primary-foreground: #ffffff;
+  --secondary: var(--desk-tint);
+  --secondary-foreground: var(--ink);
+  --muted: #f3f6f6;
+  --muted-foreground: var(--ink-muted);
+  --accent: var(--desk-tint);
+  --accent-foreground: var(--ink);
+  --destructive: #ef4444;
+  --border: var(--border-color);
+  --input: var(--border-color);
+  --ring: var(--desk-action);
+  --radius: 0.625rem;
+
+  --sidebar: var(--bg-sidebar);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--desk);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--desk-10);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--border-color);
+  --sidebar-ring: var(--desk-action);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-desk-depth: var(--desk-depth);
+  --color-desk: var(--desk);
+  --color-desk-action: var(--desk-action);
+  --color-desk-hover: var(--desk-hover);
+  --color-desk-soft: var(--desk-soft);
+  --color-desk-tint: var(--desk-tint);
+  --color-desk-surface: var(--desk-surface);
+  --color-desk-10: var(--desk-10);
+  --color-desk-depth-10: var(--desk-depth-10);
+  --color-desk-press: var(--desk-press);
+
+  --color-ink: var(--ink);
+  --color-ink-body: var(--ink-body);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--border-color);
+  --color-line-soft: var(--border-soft);
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.2);
+  --radius-2xl: calc(var(--radius) * 1.6);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* ── ServiceOps typography scale (size / line-height / weight) ── */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-display: 28px;
+  --text-display--line-height: 36px;
+  --text-display--font-weight: 600;
+  --text-h1: 20px;
+  --text-h1--line-height: 28px;
+  --text-h1--font-weight: 600;
+  --text-h2: 16px;
+  --text-h2--line-height: 24px;
+  --text-h2--font-weight: 600;
+  --text-label: 14px;
+  --text-label--line-height: 20px;
+  --text-label--font-weight: 500;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-nav-item: 16px;
+  --text-nav-item--line-height: 22px;
+  --text-nav-item--font-weight: 500;
+  --text-nav-group-label: 12px;
+  --text-nav-group-label--line-height: 16px;
+  --text-nav-group-label--font-weight: 600;
+  --text-nav-group-label--letter-spacing: 0.04em;
+  --text-table-header: 13px;
+  --text-table-header--line-height: 18px;
+  --text-table-header--font-weight: 600;
+  --text-table-cell: 14px;
+  --text-table-cell--line-height: 20px;
+  --text-table-cell-secondary: 12px;
+  --text-table-cell-secondary--line-height: 16px;
+  --text-field-label: 13px;
+  --text-field-label--line-height: 18px;
+  --text-field-label--font-weight: 500;
+  --text-button: 14px;
+  --text-button--line-height: 20px;
+  --text-button--font-weight: 500;
+  --text-button-sm: 13px;
+  --text-button-sm--line-height: 18px;
+  --text-button-sm--font-weight: 500;
+  --text-card-title: 16px;
+  --text-card-title--line-height: 24px;
+  --text-card-title--font-weight: 600;
+  --text-badge: 12px;
+  --text-badge--line-height: 16px;
+  --text-badge--font-weight: 500;
+
+  --shadow-card: var(--card-shadow);
+  --shadow-pop: var(--pop-shadow);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--bg-page);
+    color: var(--ink-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--desk-soft);
+    color: var(--desk-depth);
+  }
+  :focus-visible {
+    outline: 2px solid var(--desk-action);
+    outline-offset: 2px;
+  }
+  [data-slot]:focus-visible {
+    outline: none;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #cfdcdc transparent;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Content area offset by the fixed header and (desktop) sidebar — ServiceOps .sidebar-content */
+.desk-content {
+  padding-top: 64px;
+  transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (min-width: 1024px) {
+  .desk-content {
+    padding-top: var(--header-h);
+    margin-left: var(--sidebar-w);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
