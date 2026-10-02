@@ -6,6 +6,7 @@ import { TicketIcon } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DrawerActions, DrawerSection, FormField, SideDrawer, fieldClass } from "@/components/shared/desk-ui";
+import { useRegisterAction } from "@/components/layout/actions-context";
 import { useCreateTicket } from "@/hooks/use-ticket";
 import { useLookups } from "@/hooks/use-tickets";
 import { createTicketSchema, type CreateTicketInput } from "@/lib/schemas/ticket";
@@ -25,6 +26,7 @@ export function NewTicketProvider({ children }: { children: ReactNode }) {
     setSession((s) => s + 1);
     setOpen(true);
   }, []);
+  useRegisterAction("create-ticket", openNewTicket);
   const value = useMemo(() => ({ openNewTicket }), [openNewTicket]);
   return (
     <NewTicketContext.Provider value={value}>

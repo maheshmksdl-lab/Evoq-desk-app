@@ -6,6 +6,7 @@ import { DetailCard, EditButton } from "@/components/shared/desk-ui";
 import type { Ticket } from "@/lib/types/ticket";
 import { TicketComposer, type ComposerMode } from "./ticket-composer";
 import { TicketMessage } from "./ticket-message";
+import { TypingIndicator } from "./ticket-presence";
 
 /** Chronological thread card + the reply composer under it. */
 export function TicketConversation({
@@ -42,7 +43,8 @@ export function TicketConversation({
           ))}
         </ol>
       </DetailCard>
-      <div ref={composerAnchorRef} className="scroll-mt-24">
+      <div ref={composerAnchorRef} className="flex scroll-mt-24 flex-col gap-2">
+        <TypingIndicator ticketId={ticket.id} />
         <TicketComposer ticket={ticket} mode={composerMode} onModeChange={onComposerModeChange} textareaRef={textareaRef} />
       </div>
     </div>

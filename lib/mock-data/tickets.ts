@@ -97,7 +97,7 @@ const SEEDS: TicketSeed[] = [
         ago: 58,
         from: "n:agt-daniel",
         body:
-          "Customer is using the legacy reporting module. Exports over ~50k rows hit the 60s gateway timeout there — same pattern as #DK-2026-00391. Suggest offering the async export from the new module as a workaround.",
+          "@Sarah Wilson the customer is using the legacy reporting module. Exports over ~50k rows hit the 60s gateway timeout there — same pattern as #DK-2026-00391. Suggest offering the async export from the new module as a workaround.",
       },
       {
         ago: 35,
@@ -112,8 +112,8 @@ const SEEDS: TicketSeed[] = [
     ],
     events: [
       { ago: 2 * H + 17, type: "assigned", description: "Assigned to Sarah Wilson", actor: "Auto-assignment" },
-      { ago: 31, type: "priority_changed", description: "Priority changed from Medium to High", actor: "Olivia Thomas" },
       { ago: 31, type: "tag_added", description: "Tag \"customer-impact\" added", actor: "Olivia Thomas" },
+      { ago: 12, type: "priority_changed", description: "Priority changed from Medium to High", actor: "Alex Morgan" },
     ],
   },
   {
@@ -272,7 +272,7 @@ const SEEDS: TicketSeed[] = [
   {
     n: 476,
     subject: "Request: scheduled exports to SFTP",
-    contact: "con-emily",
+    contact: "con-rachel",
     assignee: "agt-olivia",
     team: "team-success",
     status: "on_hold",
@@ -292,12 +292,12 @@ const SEEDS: TicketSeed[] = [
         ago: 3 * D + 20 * H,
         from: "a:agt-olivia",
         body:
-          "Hi Emily,\n\nThanks for the detailed request. Scheduled delivery to SFTP isn't available today, but I've shared your use case with our product team, who are scoping export destinations for Q1.\n\nI'll keep this ticket on hold and update you as soon as there's a confirmed timeline.",
+          "Hi Rachel,\n\nThanks for the detailed request. Scheduled delivery to SFTP isn't available today, but I've shared your use case with our product team, who are scoping export destinations for Q1.\n\nI'll keep this ticket on hold and update you as soon as there's a confirmed timeline.",
       },
       {
         ago: 3 * D + 19 * H,
         from: "n:agt-olivia",
-        body: "Linked to product request PR-118 (export destinations). Northstar renewal is in January — worth flagging to the account manager.",
+        body: "Linked to product request PR-118 (export destinations). @Sarah Wilson Northstar renewal is in January — worth flagging to the account manager.",
       },
     ],
     events: [{ ago: 3 * D + 20 * H, type: "status_changed", description: "Status changed from Open to On Hold", actor: "Olivia Thomas" }],
@@ -602,7 +602,7 @@ const SEEDS: TicketSeed[] = [
   {
     n: 464,
     subject: "Salesforce sync creating duplicate contacts",
-    contact: "con-emily",
+    contact: "con-rachel",
     assignee: "agt-james",
     team: "team-integrations",
     status: "open",
@@ -622,7 +622,7 @@ const SEEDS: TicketSeed[] = [
         ago: 2 * D - 45,
         from: "a:agt-james",
         body:
-          "Hi Emily,\n\nI've paused the Salesforce sync for your workspace to stop further duplicates. It looks like the matching field changed from Email to Contact ID after your Salesforce admin updated the field mapping. I'm preparing a cleanup script to merge the duplicates.",
+          "Hi Rachel,\n\nI've paused the Salesforce sync for your workspace to stop further duplicates. It looks like the matching field changed from Email to Contact ID after your Salesforce admin updated the field mapping. I'm preparing a cleanup script to merge the duplicates.",
       },
       {
         ago: 5 * H,
@@ -893,6 +893,7 @@ export function buildTickets(now: number): TicketRecord[] {
         visibility: kind === "n" ? "internal" : "public",
         channel,
         attachments,
+        mentions: mentionsIn(m.body),
       };
     });
 
@@ -980,6 +981,7 @@ export function buildTickets(now: number): TicketRecord[] {
         resolvedAt: seed.resolvedAgo !== undefined ? at(seed.resolvedAgo) : null,
       },
       tags: seed.tags,
+      spam: false,
       createdAt: at(createdAgo),
       updatedAt: at(latestAgo),
       lastReplyAt: at(lastPublic.ago),
@@ -989,6 +991,12 @@ export function buildTickets(now: number): TicketRecord[] {
       followerIds: seed.followers ?? [],
     };
   });
+}
+
+/** Agent and team ids @mentioned in a message body ("@Sarah Wilson", "@Technical Support"). */
+export function mentionsIn(body: string): string[] {
+  const lower = body.toLowerCase();
+  return [...AGENTS, ...TEAMS].filter((x) => lower.includes(`@${x.name.toLowerCase()}`)).map((x) => x.id);
 }
 
 function channelLabel(source: TicketSource) {
@@ -1007,28 +1015,4 @@ export const SUGGESTED_TAGS = [
   "feature-request",
   "data-quality",
   "follow-up",
-];
-
-/** Canned responses for the reply composer. */
-export const SAVED_REPLIES = [
-  {
-    id: "sr-ack",
-    title: "Acknowledge & investigating",
-    body: "Thanks for reaching out, and sorry for the trouble. I'm looking into this now and will update you as soon as I know more.",
-  },
-  {
-    id: "sr-more-info",
-    title: "Request more information",
-    body: "To help us investigate, could you share:\n\n- The steps you took before the issue appeared\n- A screenshot of any error message\n- The approximate time it happened",
-  },
-  {
-    id: "sr-escalated",
-    title: "Escalated to engineering",
-    body: "I've escalated this to our engineering team with all the details you've provided. I'll keep this ticket updated and let you know as soon as there's progress.",
-  },
-  {
-    id: "sr-resolved",
-    title: "Resolved — confirm with customer",
-    body: "This should now be resolved. Could you confirm everything is working as expected on your side? If anything still looks off, just reply to this email and the ticket will reopen.",
-  },
 ];

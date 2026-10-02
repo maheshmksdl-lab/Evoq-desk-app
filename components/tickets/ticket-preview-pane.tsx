@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRegisterAction } from "@/components/layout/actions-context";
 import { DetailCard } from "@/components/shared/desk-ui";
 import { PersonAvatar } from "@/components/shared/person-avatar";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
@@ -40,6 +41,8 @@ import { TicketMessage } from "./ticket-message";
 import { TicketMeta } from "./ticket-meta";
 import { TicketPriorityBadge } from "./ticket-priority-badge";
 import { TicketSlaCard } from "./ticket-sla-card";
+import { TicketSpamNotice } from "./ticket-spam-notice";
+import { TicketCollaboration, TypingIndicator } from "./ticket-presence";
 import { TicketTags } from "./ticket-tags";
 
 type Tab = "conversation" | "details" | "customer" | "related" | "activity";
@@ -103,6 +106,18 @@ function PaneBody({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) 
   const [mode, setMode] = useState<ComposerMode>("public");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const status = STATUS_META[ticket.status];
+
+  const openComposer = (m: ComposerMode) => {
+    setTab("conversation");
+    setMode(m);
+    // Wait a frame so the conversation tab is mounted before focusing.
+    requestAnimationFrame(() => {
+      textareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      textareaRef.current?.focus({ preventScroll: true });
+    });
+  };
+  useRegisterAction("reply", () => openComposer("public"));
+  useRegisterAction("internal-note", () => openComposer("internal"));
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "conversation", label: "Conversation", count: ticket.messages.length },
     { key: "details", label: "Details" },
@@ -177,6 +192,13 @@ function PaneBody({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) 
         <p className="mt-1 text-[12px] text-ink-muted">
           Created <TimeLabel iso={ticket.createdAt} /> via {SOURCE_LABEL[ticket.source]} · Updated <TimeLabel iso={ticket.updatedAt} />
         </p>
+        <TicketCollaboration ticket={ticket} className="mt-2" />
+
+        {ticket.spam && (
+          <div className="mt-3">
+            <TicketSpamNotice ticket={ticket} />
+          </div>
+        )}
 
         {/* Requester */}
         <div className="mt-3 flex items-center gap-3 rounded-xl border border-line-soft px-3 py-2.5">
@@ -232,6 +254,7 @@ function PaneBody({ ticket, onClose }: { ticket: Ticket; onClose: () => void }) 
                 <TicketMessage key={m.id} message={m} isFirst={i === 0} />
               ))}
             </ol>
+            <TypingIndicator ticketId={ticket.id} />
             <TicketComposer ticket={ticket} mode={mode} onModeChange={setMode} textareaRef={textareaRef} />
           </div>
         )}

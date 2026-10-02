@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserCircleIcon } from "@phosphor-icons/react/dist/ssr";
+import { PencilSimpleLineIcon, UserCircleIcon } from "@phosphor-icons/react/dist/ssr";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PILL_TONE, type PillTone } from "@/components/shared/desk-ui";
 import { PersonAvatar } from "@/components/shared/person-avatar";
@@ -130,6 +130,7 @@ export function TicketRow({
   open,
   onOpen,
   compact = false,
+  typing,
 }: {
   ticket: TicketSummary;
   selected: boolean;
@@ -137,6 +138,8 @@ export function TicketRow({
   open?: boolean;
   onOpen?: (id: string) => void;
   compact?: boolean;
+  /** "Alex is replying…" when another agent is composing on this ticket. */
+  typing?: string | null;
 }) {
   const router = useRouter();
   const href = `/tickets/${ticket.id}`;
@@ -197,9 +200,22 @@ export function TicketRow({
         <TimeLabel iso={ticket.updatedAt} />
       </td>
       <td className={bodyCell}>
-        <div className="flex min-w-0 items-center gap-2" title={ticket.assignee?.name ?? "Unassigned"}>
-          <PersonAvatar name={ticket.assignee?.name ?? null} src={ticket.assignee?.avatar} size="sm" status={ticket.assignee?.status} />
-          <p className={cn("max-w-[130px] truncate text-[13px]", n.narrowSr, ticket.assignee ? "text-ink-body" : "text-ink-muted")}>{ticket.assignee?.name ?? "Unassigned"}</p>
+        <div className="flex min-w-0 items-center gap-2" title={[ticket.assignee?.name ?? "Unassigned", typing].filter(Boolean).join(" · ")}>
+          <span className="relative shrink-0">
+            <PersonAvatar name={ticket.assignee?.name ?? null} src={ticket.assignee?.avatar} size="sm" status={ticket.assignee?.status} />
+            {typing && (
+              <PencilSimpleLineIcon
+                size={12}
+                weight="fill"
+                aria-hidden
+                className={cn("absolute -top-1 -right-1.5 rounded-full bg-card p-px text-desk", compact ? "" : "xl:hidden")}
+              />
+            )}
+          </span>
+          <div className={cn("min-w-0", n.narrowSr)}>
+            <p className={cn("max-w-[130px] truncate text-[13px]", ticket.assignee ? "text-ink-body" : "text-ink-muted")}>{ticket.assignee?.name ?? "Unassigned"}</p>
+            {typing && <p className="max-w-[150px] truncate text-[11px] leading-4 font-medium text-desk">{typing}</p>}
+          </div>
         </div>
       </td>
       <td className={cn(bodyCell, "w-12 pr-3 text-right")}>
@@ -210,7 +226,7 @@ export function TicketRow({
 }
 
 /** Phone layout: one tappable card per ticket. */
-export function TicketCard({ ticket }: { ticket: TicketSummary }) {
+export function TicketCard({ ticket, typing }: { ticket: TicketSummary; typing?: string | null }) {
   const router = useRouter();
   const sla = focusClock(ticket.sla);
   const urgentSla = sla.state === "at_risk" || sla.state === "breached";
@@ -247,6 +263,7 @@ export function TicketCard({ ticket }: { ticket: TicketSummary }) {
           <TimeLabel iso={ticket.updatedAt} className="whitespace-nowrap" />
         </span>
       </div>
+      {typing && <p className="mt-2 text-[12px] font-medium text-desk">{typing}</p>}
       {urgentSla && (
         <div className="mt-2 border-t border-line-soft pt-2">
           <TicketSlaIndicator sla={ticket.sla} className="flex-row items-center gap-1.5 [&>span:last-child]:before:content-['·_']" />

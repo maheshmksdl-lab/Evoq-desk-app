@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CaretDownIcon, CheckCircleIcon, FlagIcon, TagIcon, UserCircleIcon, XCircleIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
+import { CaretDownIcon, CheckCircleIcon, FlagIcon, ProhibitIcon, TagIcon, TagSimpleIcon, UserCircleIcon, XCircleIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import { useLookups } from "@/hooks/use-tickets";
 import type { TicketPatch } from "@/lib/api/tickets";
 import { pluralize } from "@/lib/format";
 import { PRIORITY_META, STATUS_META } from "@/lib/ticket-meta";
-import { TICKET_PRIORITIES, TICKET_STATUSES } from "@/lib/types/ticket";
+import { TICKET_PRIORITIES, TICKET_STATUSES, type TicketSummary } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
 
 const barButton =
@@ -38,17 +38,25 @@ function BarMenu({ icon, label, disabled, children }: { icon: ReactNode; label: 
   );
 }
 
-/** Replaces the filter pills while rows are selected: assign, status, priority, tag or close in one go. */
-export function TicketBulkBar({ ids, onClear }: { ids: string[]; onClear: () => void }) {
+/**
+ * Replaces the filter pills while rows are selected: assign, status, priority,
+ * tags, close or spam in one go.
+ */
+export function TicketBulkBar({ tickets, onClear }: { tickets: TicketSummary[]; onClear: () => void }) {
   const bulk = useBulkUpdateTickets();
   const { data: lookups } = useLookups();
+  const ids = tickets.map((t) => t.id);
   const count = ids.length;
-  const run = (patch: TicketPatch, message: string) =>
+  const tagsInSelection = [...new Set(tickets.flatMap((t) => t.tags))].sort();
+  const allSpam = tickets.every((t) => t.spam);
+  const run = (patch: TicketPatch, message: string, undo?: TicketPatch) =>
     bulk.mutate(
       { ids, patch },
       {
         onSuccess: () => {
-          toast.success(`${pluralize(count, "ticket")} ${message}`);
+          toast.success(`${pluralize(count, "ticket")} ${message}`, {
+            action: undo ? { label: "Undo", onClick: () => bulk.mutate({ ids, patch: undo }) } : undefined,
+          });
           onClear();
         },
       },
@@ -118,10 +126,36 @@ export function TicketBulkBar({ ids, onClear }: { ids: string[]; onClear: () => 
         ))}
       </BarMenu>
 
+      <BarMenu icon={<TagSimpleIcon size={15} aria-hidden />} label="Remove tag" disabled={bulk.isPending || !tagsInSelection.length}>
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Remove from every selected ticket</DropdownMenuLabel>
+        {tagsInSelection.map((tag) => (
+          <DropdownMenuItem key={tag} onSelect={() => run({ removeTag: tag }, `untagged "${tag}"`)}>
+            {tag}
+          </DropdownMenuItem>
+        ))}
+      </BarMenu>
+
       <button type="button" disabled={bulk.isPending} onClick={() => run({ status: "closed" }, "closed")} className={cn(barButton, "hover:border-destructive hover:text-destructive")}>
         <XCircleIcon size={15} aria-hidden />
         Close
       </button>
+
+      {allSpam ? (
+        <button type="button" disabled={bulk.isPending} onClick={() => run({ spam: false }, "moved out of spam", { spam: true })} className={barButton}>
+          <ProhibitIcon size={15} aria-hidden />
+          Not spam
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={bulk.isPending}
+          onClick={() => run({ spam: true }, "marked as spam", { spam: false })}
+          className={cn(barButton, "hover:border-destructive hover:text-destructive")}
+        >
+          <ProhibitIcon size={15} aria-hidden />
+          Mark as spam
+        </button>
+      )}
     </div>
   );
 }

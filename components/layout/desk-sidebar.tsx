@@ -1,15 +1,15 @@
 "use client";
 
-import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LightningIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useViewCounts } from "@/hooks/use-tickets";
+import { useRegisterAction } from "./actions-context";
 import { cn } from "@/lib/utils";
 import { DeskLogo } from "./desk-logo";
-import { INBOX, INBOX_QUEUES, isQueueActive, MAIN_ITEMS, OVERVIEW, queueHref, type InboxQueue, type NavItem } from "./nav-config";
+import { INBOX, INBOX_QUEUES, MAIN_ITEMS, OVERVIEW, queueHref, type InboxQueue, type NavItem } from "./nav-config";
 import { useShell } from "./shell-context";
 
 const TONE_TEXT = { orange: "text-[#EA580C]", red: "text-[#E5484D]" } as const;
@@ -83,45 +83,31 @@ function QueueRow({ queue, active, count, onNavigate }: { queue: InboxQueue; act
 }
 
 /** Overview · Inbox (with its queues) · then the modules. */
-function NavItems({ params, collapsed, onNavigate }: { params: URLSearchParams; collapsed: boolean; onNavigate?: () => void }) {
+function Nav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: counts } = useViewCounts();
-  const activeQueue = INBOX_QUEUES.find((q) => isQueueActive(q, pathname, params));
-  const ticketsActive = !activeQueue && (pathname === "/tickets" || pathname.startsWith("/tickets/"));
+  const activeQueue = INBOX_QUEUES.find((q) => pathname === queueHref(q));
+  const under = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
   return (
     <>
       <div className="space-y-0.5">
-        <NavRow item={OVERVIEW} active={false} collapsed={collapsed} onNavigate={onNavigate} />
-        <NavRow item={INBOX} active={!!activeQueue} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavRow item={OVERVIEW} active={under(OVERVIEW.href)} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavRow item={INBOX} active={under("/inbox")} collapsed={collapsed} onNavigate={onNavigate} />
         {!collapsed && (
           <ul className="space-y-0.5 pt-0.5" aria-label="Inbox queues">
             {INBOX_QUEUES.map((q) => (
-              <QueueRow key={q.label} queue={q} active={q === activeQueue} count={q.view && counts ? counts[q.view] : undefined} onNavigate={onNavigate} />
+              <QueueRow key={q.label} queue={q} active={q === activeQueue} count={q.view === "recent" || !counts ? undefined : counts[q.view]} onNavigate={onNavigate} />
             ))}
           </ul>
         )}
       </div>
       <div className={cn("space-y-0.5", collapsed ? "mt-3 border-t border-line pt-3" : "mt-6")}>
         {MAIN_ITEMS.map((item) => (
-          <NavRow key={item.href} item={item} active={item.href === "/tickets" && ticketsActive} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavRow key={item.href} item={item} active={item.available && under(item.href)} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </div>
     </>
-  );
-}
-
-function NavItemsWithParams(props: { collapsed: boolean; onNavigate?: () => void }) {
-  const params = useSearchParams();
-  return <NavItems params={new URLSearchParams(params.toString())} {...props} />;
-}
-
-/** The URL's query string needs Suspense; until it resolves the nav renders with no queue selected. */
-function Nav(props: { collapsed: boolean; onNavigate?: () => void }) {
-  return (
-    <Suspense fallback={<NavItems params={new URLSearchParams()} {...props} />}>
-      <NavItemsWithParams {...props} />
-    </Suspense>
   );
 }
 
@@ -164,8 +150,10 @@ function QuickActionsCard({ collapsed, onOpen }: { collapsed: boolean; onOpen: (
 
 /** Desktop: fixed under the header, collapsible to icons. Phones / tablets: overlay drawer. */
 export function DeskSidebar() {
-  const { collapsed, drawerOpen, setDrawerOpen, setPaletteOpen } = useShell();
+  const { collapsed, toggleCollapsed, drawerOpen, setDrawerOpen, setPaletteOpen } = useShell();
   const close = () => setDrawerOpen(false);
+  // Desktop collapses the rail; smaller screens open the navigation drawer instead.
+  useRegisterAction("toggle-sidebar", () => (window.matchMedia("(min-width: 1024px)").matches ? toggleCollapsed() : setDrawerOpen(true)));
 
   return (
     <>

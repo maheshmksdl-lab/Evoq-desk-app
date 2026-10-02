@@ -8,7 +8,7 @@ import { useLookups, useTickets, useViewCounts } from "@/hooks/use-tickets";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useTicketQuery } from "@/hooks/use-ticket-query";
-import { countActiveFilters, EMPTY_FILTERS, SLA_FILTER_STATES, type FilterKey, type TicketFilters } from "@/lib/schemas/ticket";
+import { countActiveFilters, EMPTY_FILTERS, SLA_FILTER_STATES, type FilterKey, type TicketFilters, type TicketView } from "@/lib/schemas/ticket";
 import { PRIORITY_META, SLA_META, SOURCE_LABEL, STATUS_META } from "@/lib/ticket-meta";
 import { TICKET_PRIORITIES, TICKET_SOURCES, TICKET_STATUSES } from "@/lib/types/ticket";
 import { useNewTicket } from "./new-ticket-dialog";
@@ -45,9 +45,9 @@ function withMulti(options: SelectOption[], values: string[], key: FilterKey): S
  * while rows are selected), dense table, compact footer — and, on wide screens,
  * the open ticket in a panel beside the list.
  */
-export function TicketList() {
+export function TicketList({ view: fixedView }: { view?: TicketView } = {}) {
   const { openNewTicket } = useNewTicket();
-  const { query, setQuery, filters, setFilters, clearFilters } = useTicketQuery();
+  const { query, setQuery, filters, setFilters, clearFilters } = useTicketQuery(fixedView);
   // The open ticket isn't part of the list query, so opening one doesn't refetch the list.
   const { data, isPending, isError, isPlaceholderData, refetch } = useTickets({ ...query, open: undefined });
   const { data: counts } = useViewCounts();
@@ -64,7 +64,7 @@ export function TicketList() {
   const [selection, setSelection] = useState<{ key: string; ids: Set<string> }>({ key: listKey, ids: new Set() });
   const selected = selection.key === listKey ? selection.ids : new Set<string>();
   const setSelected = (ids: Set<string>) => setSelection({ key: listKey, ids });
-  const visibleSelected = (data?.items ?? []).filter((t) => selected.has(t.id)).map((t) => t.id);
+  const visibleSelected = (data?.items ?? []).filter((t) => selected.has(t.id));
 
   const openTicket = (id: string | undefined) => setQuery({ open: id }, { keepPage: true });
 
@@ -116,7 +116,7 @@ export function TicketList() {
         </div>
 
         {visibleSelected.length > 0 ? (
-          <TicketBulkBar ids={visibleSelected} onClear={() => setSelected(new Set())} />
+          <TicketBulkBar tickets={visibleSelected} onClear={() => setSelected(new Set())} />
         ) : (
         <div role="toolbar" aria-label="Filter tickets" className="scrollbar-none flex items-center gap-2 overflow-x-auto px-4 pb-3 sm:flex-wrap sm:px-5">
           {BAR_KEYS.map((key) => (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ArrowBendUpLeftIcon,
   CaretDownIcon,
@@ -12,6 +12,7 @@ import {
   PaperPlaneTiltIcon,
   TextBIcon,
   TextItalicIcon,
+  WarningIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,12 +26,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAddMessage } from "@/hooks/use-ticket";
-import { SAVED_REPLIES } from "@/lib/mock-data/tickets";
+import { useRecordSavedReplyUse, useSavedReplies } from "@/hooks/use-saved-replies";
+import { useAnnouncePresence } from "@/hooks/use-presence";
+import { CURRENT_AGENT_ID } from "@/lib/mock-data/agents";
 import { attachmentDraftSchema, composerSchema } from "@/lib/schemas/ticket";
 import { STATUS_META } from "@/lib/ticket-meta";
 import type { Ticket, TicketStatus } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "./attachment-list";
+import { joinNames, useOthers } from "./ticket-presence";
 
 export type ComposerMode = "public" | "internal";
 type Draft = { name: string; size: number; mimeType: string };
@@ -57,13 +61,36 @@ export function TicketComposer({
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const send = useAddMessage(ticket.id);
+  const { data: savedReplies } = useSavedReplies();
+  const recordUse = useRecordSavedReplyUse();
   const internal = mode === "internal";
   const firstName = ticket.contact.name.split(" ")[0];
+
+  // ── Collision awareness: warn softly, never block ──
+  const [focused, setFocused] = useState(false);
+  const [continued, setContinued] = useState(false);
+  const [waitingFor, setWaitingFor] = useState<string | null>(null);
+  const [draftSince, setDraftSince] = useState<string | null>(null);
+  const [dismissedReplyId, setDismissedReplyId] = useState<string | null>(null);
+  const others = useOthers(ticket.id);
+  const replying = others.filter((o) => o.typing === "reply").map((o) => o.agent);
+  useAnnouncePresence(ticket.id, body.trim() ? (internal ? "note" : "reply") : null);
+
+  const showReplyingWarning = !internal && focused && replying.length > 0 && !continued && !waitingFor;
+  const waitOver = waitingFor !== null && replying.length === 0;
+  // A colleague's public reply that landed while this draft was open.
+  const landedReply = draftSince
+    ? ticket.messages.findLast(
+        (m) => m.visibility === "public" && m.authorType === "agent" && m.author.id !== CURRENT_AGENT_ID && m.timestamp > draftSince,
+      )
+    : undefined;
+  const showLandedReply = !internal && landedReply && landedReply.id !== dismissedReplyId;
 
   const reset = () => {
     setBody("");
     setFiles([]);
     setError(null);
+    setDraftSince(null);
   };
 
   const submit = (setStatus?: TicketStatus) => {
@@ -118,7 +145,8 @@ export function TicketComposer({
     });
   };
 
-  const insertSavedReply = (text: string) => {
+  const insertSavedReply = (id: string, text: string) => {
+    recordUse.mutate(id);
     const greeting = body.trim() ? "" : `Hi ${firstName},\n\n`;
     setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${text}` : `${greeting}${text}`));
     setError(null);
@@ -209,9 +237,13 @@ export function TicketComposer({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-72">
               <DropdownMenuLabel className="text-nav-group-label text-ink-muted uppercase">Insert a saved reply</DropdownMenuLabel>
-              {SAVED_REPLIES.map((r) => (
-                <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.body)} className="flex-col items-start gap-0.5">
-                  <span className="font-medium">{r.title}</span>
+              {!savedReplies && <DropdownMenuItem disabled>Loading saved replies…</DropdownMenuItem>}
+              {savedReplies?.map((r) => (
+                <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.id, r.body)} className="flex-col items-start gap-0.5">
+                  <span className="flex w-full items-center gap-2">
+                    <span className="flex-1 font-medium">{r.name}</span>
+                    <code className="text-[11px] text-ink-muted">{r.shortcut}</code>
+                  </span>
                   <span className="line-clamp-1 text-caption text-ink-muted">{r.body}</span>
                 </DropdownMenuItem>
               ))}
@@ -219,6 +251,54 @@ export function TicketComposer({
           </DropdownMenu>
         )}
       </div>
+
+      {showReplyingWarning && (
+        <CollisionNotice
+          text={`${joinNames(replying)} ${replying.length > 1 ? "are" : "is"} replying to ${firstName} right now. Two replies at once can confuse the customer.`}
+          actions={
+            <>
+              <NoticeButton
+                onClick={() => {
+                  setWaitingFor(joinNames(replying));
+                  textareaRef.current?.blur();
+                }}
+              >
+                Wait
+              </NoticeButton>
+              <NoticeButton primary onClick={() => setContinued(true)}>
+                Continue anyway
+              </NoticeButton>
+            </>
+          }
+        />
+      )}
+      {waitingFor && !waitOver && (
+        <CollisionNotice tone="info" text={`Waiting for ${waitingFor} to finish — we'll let you know here.`} actions={<NoticeButton onClick={() => setWaitingFor(null)}>Stop waiting</NoticeButton>} />
+      )}
+      {waitOver && (
+        <CollisionNotice
+          tone="info"
+          text={`${waitingFor} finished. Read the conversation above before you respond.`}
+          actions={
+            <NoticeButton
+              primary
+              onClick={() => {
+                setWaitingFor(null);
+                setContinued(true);
+                textareaRef.current?.focus();
+              }}
+            >
+              Reply now
+            </NoticeButton>
+          }
+        />
+      )}
+      {showLandedReply && (
+        <CollisionNotice
+          text={`${landedReply.author.name.split(" ")[0]} replied to ${firstName} while you were writing. Read it before you send.`}
+          actions={<NoticeButton onClick={() => setDismissedReplyId(landedReply.id)}>Dismiss</NoticeButton>}
+        />
+      )}
 
       <label htmlFor="composer-body" className="sr-only">
         {internal ? "Internal note" : `Reply to ${ticket.contact.name}`}
@@ -228,9 +308,12 @@ export function TicketComposer({
         ref={textareaRef}
         value={body}
         onChange={(e) => {
+          if (!body.trim() && e.target.value.trim()) setDraftSince(new Date().toISOString());
           setBody(e.target.value);
           if (error) setError(null);
         }}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -241,7 +324,7 @@ export function TicketComposer({
         placeholder={internal ? "Share context with your team — customers never see notes." : `Write your reply to ${firstName}…`}
         aria-invalid={!!error}
         aria-describedby={error ? "composer-error" : undefined}
-        className="block max-h-[50vh] min-h-[120px] w-full resize-y bg-transparent px-4 py-3 text-body leading-relaxed text-ink placeholder:text-ink-faint sm:px-5reground focus:outline-none"
+        className="block max-h-[50vh] min-h-[120px] w-full resize-y bg-transparent px-4 py-3 text-body leading-relaxed text-ink placeholder:text-ink-faint sm:px-5 focus:outline-none"
       />
 
       <AttachmentList attachments={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} className="px-4 pb-3 sm:px-5" />
@@ -293,6 +376,41 @@ export function TicketComposer({
         </div>
       </div>
     </section>
+  );
+}
+
+/** Inline collision message inside the composer — awareness, not a lock. */
+function CollisionNotice({ text, actions, tone = "warn" }: { text: string; actions: ReactNode; tone?: "warn" | "info" }) {
+  return (
+    <div
+      role="status"
+      className={cn(
+        "mx-3 mt-3 flex flex-col gap-2 rounded-xl px-3.5 py-2.5 text-[13px] sm:mx-4 sm:flex-row sm:items-center",
+        tone === "warn" ? "bg-[#FFF7ED] text-[#9A3412]" : "bg-desk-10 text-ink",
+      )}
+    >
+      <span className="flex min-w-0 flex-1 items-start gap-2">
+        <WarningIcon size={16} weight="fill" aria-hidden className={cn("mt-px shrink-0", tone === "warn" ? "text-[#EA580C]" : "text-desk")} />
+        {text}
+      </span>
+      <span className="flex shrink-0 gap-1.5">{actions}</span>
+    </div>
+  );
+}
+
+function NoticeButton({ children, onClick, primary }: { children: ReactNode; onClick: () => void; primary?: boolean }) {
+  return (
+    <button
+      type="button"
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={onClick}
+      className={cn(
+        "h-8 rounded-lg px-3 text-[13px] font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
+        primary ? "bg-desk text-white hover:bg-desk-press" : "border border-line bg-card text-ink hover:border-desk",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 

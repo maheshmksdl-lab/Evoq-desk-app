@@ -34,7 +34,7 @@ export const SORT_LABEL: Record<TicketSort, string> = {
   sla_asc: "SLA due soonest",
 };
 
-type ListKey = Exclude<FilterKey, "created" | "updated">;
+type ListKey = Exclude<FilterKey, "created" | "updated" | "spam">;
 
 export const KEY_LABEL: Record<FilterKey, string> = {
   status: "Status",
@@ -49,6 +49,7 @@ export const KEY_LABEL: Record<FilterKey, string> = {
   created: "Created",
   updated: "Updated",
   tags: "Tags",
+  spam: "Spam",
 };
 
 /** Human label for one filter value — shared by the drawer, filter bar and chips. */
@@ -74,6 +75,8 @@ export function valueLabel(key: FilterKey, value: string, lookups?: Lookups): st
       return lookups?.customers.find((c) => c.id === value)?.name ?? value;
     case "tags":
       return value;
+    case "spam":
+      return "Spam only";
     case "created":
     case "updated":
       return DATE_LABEL[value as DateRange];
@@ -222,6 +225,16 @@ export function TicketFiltersButton({
         )}
         {dateSection("created")}
         {dateSection("updated")}
+        <DrawerSection title={KEY_LABEL.spam}>
+          <div className="flex flex-wrap gap-2">
+            <Chip selected={!draft.spam} onClick={() => setDraft((d) => ({ ...d, spam: undefined }))}>
+              Hide spam
+            </Chip>
+            <Chip selected={draft.spam === "only"} onClick={() => setDraft((d) => ({ ...d, spam: "only" }))}>
+              Show spam only
+            </Chip>
+          </div>
+        </DrawerSection>
       </SideDrawer>
     </>
   );

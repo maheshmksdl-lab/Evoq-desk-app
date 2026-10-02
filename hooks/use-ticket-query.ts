@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { ticketListHref } from "@/lib/ticket-routes";
 import {
   EMPTY_FILTERS,
   FILTER_KEYS,
@@ -11,45 +12,29 @@ import {
   type TicketView,
 } from "@/lib/schemas/ticket";
 
-const DEFAULTS: Pick<TicketQuery, "view" | "q" | "sort" | "page" | "size"> = {
-  view: "all",
-  q: "",
-  sort: "updated_desc",
-  page: 1,
-  size: 25,
-};
-
-/** Serialises a query to URL params, leaving out defaults so links stay short. */
-export function ticketQueryToParams(query: Partial<TicketQuery>): URLSearchParams {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value === undefined || value === "" || (Array.isArray(value) && !value.length)) continue;
-    if (key in DEFAULTS && DEFAULTS[key as keyof typeof DEFAULTS] === value) continue;
-    params.set(key, Array.isArray(value) ? value.join(",") : String(value));
-  }
-  return params;
-}
-
-export function ticketViewHref(view: TicketView) {
-  return view === "all" ? "/tickets" : `/tickets?view=${view}`;
-}
-
 /**
  * Ticket list state lives in the URL (view, search, filters, sort, page),
  * so views are shareable, survive refresh, and work with back/forward.
+ * On an inbox route the view comes from the path (`fixedView`); switching
+ * to another view navigates to that view's own route.
  */
-export function useTicketQuery() {
+export function useTicketQuery(fixedView?: TicketView) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const query = useMemo(() => parseTicketQuery(new URLSearchParams(searchParams.toString())), [searchParams]);
+  const query = useMemo(() => {
+    const parsed = parseTicketQuery(new URLSearchParams(searchParams.toString()));
+    return fixedView ? { ...parsed, view: fixedView } : parsed;
+  }, [searchParams, fixedView]);
 
   const setQuery = useCallback(
     (patch: Partial<TicketQuery>, opts: { keepPage?: boolean } = {}) => {
       const next = { ...query, ...patch };
       if (!opts.keepPage && !("page" in patch)) next.page = 1;
-      const qs = ticketQueryToParams(next).toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const href = ticketListHref(next);
+      // A new view is a new place (history entry); refining the current one isn't.
+      if (href.split("?")[0] !== pathname) router.push(href);
+      else router.replace(href, { scroll: false });
     },
     [query, router, pathname],
   );

@@ -1,11 +1,12 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { BuildingsIcon, MagnifyingGlassIcon, TicketIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useDeskSearch } from "@/hooks/use-tickets";
+import { useRegisterAction } from "./actions-context";
 import { pluralize } from "@/lib/format";
 import { STATUS_META } from "@/lib/ticket-meta";
 
@@ -73,18 +74,11 @@ export function HeaderSearch() {
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement | null)?.closest("input, textarea, select, [contenteditable=true]");
-      if (e.key === "/" && !typing) {
-        if (!inputRef.current?.offsetParent) return; // hidden on small screens — MobileSearch handles it
-        e.preventDefault();
-        inputRef.current.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  // "/" — hidden on small screens, where MobileSearch takes the action instead.
+  useRegisterAction("search", () => {
+    if (!inputRef.current?.offsetParent) return false;
+    inputRef.current.focus();
+  });
 
   const pick = (href: string) => {
     setQ("");
@@ -134,6 +128,11 @@ export function MobileSearch() {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+
+  useRegisterAction("search", () => {
+    if (window.matchMedia("(min-width: 1024px)").matches) return false;
+    setOpen(true);
+  });
 
   return (
     <>

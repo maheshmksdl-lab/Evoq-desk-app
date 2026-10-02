@@ -1,7 +1,26 @@
+import type { z } from "zod";
+import type {
+  agentPresenceSchema,
+  agentSchema,
+  attachmentSchema,
+  automationRuleSchema,
+  contactSchema,
+  customerSchema,
+  messageAuthorSchema,
+  savedReplySchema,
+  teamSchema,
+  ticketActivitySchema,
+  ticketMessageSchema,
+  ticketPresenceSchema,
+  ticketRecordSchema,
+  ticketSlaSchema,
+} from "@/lib/schemas/entities";
+
 /**
  * Desk domain types. Ticket, Customer, Contact and Agent are separate
  * records joined by id — the mock API resolves them the way a real
  * backend would, so UI components never reach into raw mock data.
+ * Record shapes are inferred from the Zod schemas in `lib/schemas/entities.ts`.
  */
 
 export const TICKET_STATUSES = ["open", "pending", "on_hold", "resolved", "closed"] as const;
@@ -32,108 +51,49 @@ export type TicketSource = (typeof TICKET_SOURCES)[number];
 export const SLA_STATES = ["on_track", "at_risk", "breached", "met", "paused"] as const;
 export type SlaState = (typeof SLA_STATES)[number];
 
-export type CustomerType = "Enterprise" | "Business" | "Individual";
+export const CUSTOMER_TYPES = ["Enterprise", "Business", "Individual"] as const;
+export type CustomerType = (typeof CUSTOMER_TYPES)[number];
 
-export interface Team {
-  id: string;
-  name: string;
-}
+/** Account health as support sees it. */
+export const CUSTOMER_STATUSES = ["active", "at_risk", "inactive"] as const;
+export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
 
-export interface Agent {
-  id: string;
-  name: string;
-  email: string;
-  role: "Support Agent" | "Senior Support Agent" | "Team Lead" | "Support Manager";
-  teamId: string;
-  status: "available" | "busy" | "away";
-  /** Profile image URL. */
-  avatar: string;
-}
+export const AGENT_ROLES = ["Support Agent", "Senior Support Agent", "Team Lead", "Support Manager"] as const;
+export const AGENT_STATUSES = ["available", "busy", "away"] as const;
 
-export interface Customer {
-  id: string;
-  name: string;
-  domain: string;
-  phone: string;
-  type: CustomerType;
-  plan: string;
-  customerSince: string;
-}
+export const ACTIVITY_TYPES = [
+  "created",
+  "assigned",
+  "unassigned",
+  "team_changed",
+  "status_changed",
+  "priority_changed",
+  "type_changed",
+  "category_changed",
+  "customer_replied",
+  "agent_replied",
+  "note_added",
+  "tag_added",
+  "tag_removed",
+  "reopened",
+  "merged",
+  "sla_breached",
+  "marked_spam",
+] as const;
+export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
-export interface Contact {
-  id: string;
-  customerId: string;
-  name: string;
-  title: string;
-  email: string;
-  phone: string;
-  /** Profile image URL. */
-  avatar: string;
-}
+export type Team = z.infer<typeof teamSchema>;
+export type Agent = z.infer<typeof agentSchema>;
+export type Customer = z.infer<typeof customerSchema>;
+export type Contact = z.infer<typeof contactSchema>;
+export type Attachment = z.infer<typeof attachmentSchema>;
 
-export interface Attachment {
-  id: string;
-  name: string;
-  /** Bytes. */
-  size: number;
-  mimeType: string;
-}
-
-export type MessageAuthorType = "customer" | "agent" | "system";
-export type MessageVisibility = "public" | "internal";
-
-export interface MessageAuthor {
-  id: string;
-  name: string;
-  /** e.g. "Customer", "Support Agent". */
-  role: string;
-  /** Profile image URL; absent for system messages. */
-  avatar?: string;
-}
-
-export interface TicketMessage {
-  id: string;
-  author: MessageAuthor;
-  authorType: MessageAuthorType;
-  body: string;
-  timestamp: string;
-  visibility: MessageVisibility;
-  channel: TicketSource;
-  attachments: Attachment[];
-}
-
-export type ActivityType =
-  | "created"
-  | "assigned"
-  | "unassigned"
-  | "team_changed"
-  | "status_changed"
-  | "priority_changed"
-  | "type_changed"
-  | "category_changed"
-  | "customer_replied"
-  | "agent_replied"
-  | "note_added"
-  | "tag_added"
-  | "tag_removed"
-  | "reopened"
-  | "merged"
-  | "sla_breached";
-
-export interface TicketActivity {
-  id: string;
-  type: ActivityType;
-  description: string;
-  actor: string;
-  timestamp: string;
-}
-
-export interface TicketSla {
-  firstResponseDue: string;
-  resolutionDue: string;
-  firstRespondedAt: string | null;
-  resolvedAt: string | null;
-}
+export type MessageAuthorType = TicketMessage["authorType"];
+export type MessageVisibility = TicketMessage["visibility"];
+export type MessageAuthor = z.infer<typeof messageAuthorSchema>;
+export type TicketMessage = z.infer<typeof ticketMessageSchema>;
+export type TicketActivity = z.infer<typeof ticketActivitySchema>;
+export type TicketSla = z.infer<typeof ticketSlaSchema>;
 
 /** SLA with states evaluated at read time (the "server" computes these). */
 export interface TicketSlaView extends TicketSla {
@@ -142,31 +102,12 @@ export interface TicketSlaView extends TicketSla {
 }
 
 /** Stored ticket record — references other records by id. */
-export interface TicketRecord {
-  id: string;
-  ticketNumber: string;
-  subject: string;
-  description: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  type: TicketType;
-  category: TicketCategory;
-  source: TicketSource;
-  customerId: string;
-  contactId: string;
-  assigneeId: string | null;
-  teamId: string;
-  sla: TicketSla;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-  lastReplyAt: string;
-  messages: TicketMessage[];
-  activities: TicketActivity[];
-  relatedTicketIds: string[];
-  followerIds: string[];
-  mergedIntoId?: string;
-}
+export type TicketRecord = z.infer<typeof ticketRecordSchema>;
+
+export type AgentPresence = z.infer<typeof agentPresenceSchema>;
+export type TicketPresence = z.infer<typeof ticketPresenceSchema>;
+export type SavedReply = z.infer<typeof savedReplySchema>;
+export type AutomationRule = z.infer<typeof automationRuleSchema>;
 
 export interface RelatedTicketSummary {
   id: string;
@@ -200,6 +141,8 @@ export interface TicketSummary {
   awaiting: "agent" | "customer";
   /** One-line excerpt of the latest public message, for list rows. */
   preview: string;
+  /** Marked as spam — hidden from views unless the spam filter is on. */
+  spam: boolean;
 }
 
 export interface CustomerContext {

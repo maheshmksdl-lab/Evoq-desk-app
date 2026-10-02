@@ -6,6 +6,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { TicketSort } from "@/lib/schemas/ticket";
 import type { TicketSummary } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
+import { usePresenceIndex } from "@/hooks/use-presence";
+import { useLookups } from "@/hooks/use-tickets";
+import { resolvePresence, typingText } from "./ticket-presence";
 import { narrowClasses, TicketCard, TicketRow } from "./ticket-row";
 
 const headCell = "px-3 py-2.5 text-left text-[12px] leading-4 font-medium text-ink-muted whitespace-nowrap border-b border-line bg-card";
@@ -49,6 +52,10 @@ export function TicketTable({
   onOpen?: (id: string) => void;
 }) {
   const compact = !!openId;
+  // One subscription for the whole table: "Alex is replying…" hints per row.
+  const presence = usePresenceIndex();
+  const { data: lookups } = useLookups();
+  const typingOn = (id: string) => typingText(resolvePresence(presence[id] ?? [], lookups?.agents));
   const n = narrowClasses(compact);
   const picked = tickets.filter((t) => selected.has(t.id)).length;
   const toggle = (id: string) => {
@@ -62,7 +69,7 @@ export function TicketTable({
       <div className="md:hidden" role="list" aria-label="Tickets">
         {tickets.map((t) => (
           <div role="listitem" key={t.id}>
-            <TicketCard ticket={t} />
+            <TicketCard ticket={t} typing={typingOn(t.id)} />
           </div>
         ))}
       </div>
@@ -106,6 +113,7 @@ export function TicketTable({
                 open={t.id === openId}
                 onOpen={onOpen}
                 compact={compact}
+                typing={typingOn(t.id)}
               />
             ))}
           </tbody>

@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { VIEW_META } from "./ticket-views-config";
 
 const VIEW_GROUPS: { label: string; views: TicketView[] }[] = [
-  { label: "Queues", views: ["all", "mine", "unassigned", "team"] },
+  { label: "Queues", views: ["all", "mine", "unassigned", "team", "recent"] },
   { label: "Needs attention", views: ["high_priority", "sla_at_risk", "overdue"] },
   { label: "By status", views: ["open", "pending", "on_hold", "resolved", "closed"] },
 ];

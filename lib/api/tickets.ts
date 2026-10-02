@@ -7,7 +7,7 @@
  */
 import { AGENTS, CURRENT_AGENT_ID, TEAMS } from "@/lib/mock-data/agents";
 import { CONTACTS, CUSTOMERS } from "@/lib/mock-data/customers";
-import { buildTickets, SLA_POLICY, SUGGESTED_TAGS, ticketNumber } from "@/lib/mock-data/tickets";
+import { buildTickets, mentionsIn, SLA_POLICY, SUGGESTED_TAGS, ticketNumber } from "@/lib/mock-data/tickets";
 import {
   composerSchema,
   createTicketSchema,
@@ -19,6 +19,7 @@ import {
   type TicketView,
   TICKET_VIEWS,
 } from "@/lib/schemas/ticket";
+import { agentSchema, contactSchema, customerSchema, teamSchema, ticketRecordSchema } from "@/lib/schemas/entities";
 import { evaluateSla, focusClock, slaSortValue } from "@/lib/sla";
 import { ACTIVE_STATUSES, PRIORITY_META, STATUS_META } from "@/lib/ticket-meta";
 import { CATEGORY_LABEL, TYPE_LABEL } from "@/lib/ticket-meta";
@@ -33,6 +34,7 @@ import type {
   Team,
   Ticket,
   TicketCategory,
+  TicketMessage,
   TicketPriority,
   TicketRecord,
   TicketStatus,
@@ -43,7 +45,20 @@ import type {
 // ── In-memory store ──────────────────────────────────────────────────
 
 let store: TicketRecord[] | null = null;
-const db = () => (store ??= buildTickets(Date.now()));
+const db = () => (store ??= seed());
+
+/** Builds the mock store; in development it must pass the same schema a real API response would. */
+function seed(): TicketRecord[] {
+  const records = buildTickets(Date.now());
+  if (process.env.NODE_ENV !== "production") {
+    agentSchema.array().parse(AGENTS);
+    teamSchema.array().parse(TEAMS);
+    customerSchema.array().parse(CUSTOMERS);
+    contactSchema.array().parse(CONTACTS);
+    ticketRecordSchema.array().parse(records);
+  }
+  return records;
+}
 
 const agentById = new Map(AGENTS.map((a) => [a.id, a]));
 const teamById = new Map(TEAMS.map((t) => [t.id, t]));
@@ -94,6 +109,7 @@ function toBase(t: TicketRecord, now: number): TicketBase {
     createdAt: t.createdAt,
     updatedAt: t.updatedAt,
     lastReplyAt: t.lastReplyAt,
+    spam: t.spam,
   };
 }
 
@@ -152,6 +168,9 @@ function toTicket(t: TicketRecord, now: number): Ticket {
 
 const isActive = (s: TicketStatus) => ACTIVE_STATUSES.includes(s);
 
+/** "Recently updated" looks back one day. */
+const RECENT_MS = 24 * 60 * 60_000;
+
 function matchesView(t: TicketSummary, view: TicketView): boolean {
   switch (view) {
     case "all":
@@ -174,6 +193,8 @@ function matchesView(t: TicketSummary, view: TicketView): boolean {
       return isActive(t.status) && focusClock(t.sla).state === "at_risk";
     case "overdue":
       return isActive(t.status) && focusClock(t.sla).state === "breached";
+    case "recent":
+      return Date.now() - Date.parse(t.updatedAt) < RECENT_MS;
   }
 }
 
@@ -216,6 +237,7 @@ function matchesFilters(t: TicketSummary, q: TicketQuery, now: number): boolean 
   if (q.assignee.length && !q.assignee.includes(t.assignee?.id ?? "unassigned")) return false;
   if (q.sla.length && !(q.sla as string[]).includes(focusClock(t.sla).state)) return false;
   if (q.tags.length && !q.tags.some((tag) => t.tags.includes(tag))) return false;
+  if ((q.spam === "only") !== t.spam) return false;
   if (q.created && Date.parse(t.createdAt) < rangeStart(q.created, now)) return false;
   if (q.updated && Date.parse(t.updatedAt) < rangeStart(q.updated, now)) return false;
   return true;
@@ -264,7 +286,9 @@ export type ViewCounts = Record<TicketView, number>;
 export async function getViewCounts(): Promise<ViewCounts> {
   await delay(80);
   const now = Date.now();
-  const rows = db().map((t) => toSummary(t, now));
+  const rows = db()
+    .filter((t) => !t.spam)
+    .map((t) => toSummary(t, now));
   return Object.fromEntries(TICKET_VIEWS.map((v) => [v, rows.filter((t) => matchesView(t, v)).length])) as ViewCounts;
 }
 
@@ -276,6 +300,46 @@ export async function getTicket(id: string): Promise<Ticket | null> {
     if (e instanceof NotFoundError) return null;
     throw e;
   }
+}
+
+export interface Overview {
+  agent: Agent;
+  /** The signed-in agent's unresolved tickets, split the way the day is planned. */
+  counts: { mine: number; needsReply: number; waiting: number; atRisk: number; overdue: number };
+  /** What to work on next: breached, then at-risk, then awaiting a reply — soonest SLA first. */
+  attention: TicketSummary[];
+  /** Internal notes and replies that @mention the agent, newest first. */
+  mentions: { ticket: TicketSummary; message: TicketMessage }[];
+}
+
+/** "My day" for the signed-in agent. */
+export async function getOverview(): Promise<Overview> {
+  await delay();
+  const now = Date.now();
+  const me = currentAgent();
+  const live = db().filter((t) => !t.spam);
+  const mine = live.map((t) => toSummary(t, now)).filter((t) => t.assignee?.id === me.id && isActive(t.status));
+  const state = (t: TicketSummary) => focusClock(t.sla).state;
+  const rank = (t: TicketSummary) => (state(t) === "breached" ? 0 : state(t) === "at_risk" ? 1 : t.awaiting === "agent" && t.status === "open" ? 2 : 3);
+  const mentions = live
+    .flatMap((t) => t.messages.filter((m) => m.mentions.includes(me.id) || m.mentions.includes(me.teamId)).map((message) => ({ ticket: toSummary(t, now), message })))
+    .sort((a, b) => b.message.timestamp.localeCompare(a.message.timestamp))
+    .slice(0, 5);
+  return {
+    agent: me,
+    counts: {
+      mine: mine.length,
+      needsReply: mine.filter((t) => t.awaiting === "agent" && t.status === "open").length,
+      waiting: mine.filter((t) => t.status === "pending").length,
+      atRisk: mine.filter((t) => state(t) === "at_risk").length,
+      overdue: mine.filter((t) => state(t) === "breached").length,
+    },
+    attention: mine
+      .filter((t) => rank(t) < 3)
+      .sort((a, b) => rank(a) - rank(b) || slaSortValue(a.sla) - slaSortValue(b.sla))
+      .slice(0, 6),
+    mentions,
+  };
 }
 
 export interface SearchResults {
@@ -290,7 +354,7 @@ export async function searchDesk(q: string): Promise<SearchResults> {
   const now = Date.now();
   const tickets = db()
     .map((t) => toSummary(t, now))
-    .filter((t) => matchesSearch(t, term))
+    .filter((t) => !t.spam && matchesSearch(t, term))
     .sort(SORTERS.updated_desc)
     .slice(0, 6);
   const customers = CUSTOMERS.map((customer) => {
@@ -327,7 +391,9 @@ export async function getLookups(): Promise<Lookups> {
 
 // ── Mutations ────────────────────────────────────────────────────────
 
-const currentAgent = () => agentById.get(CURRENT_AGENT_ID)!;
+/** Set only while applying another agent's change (see `applyRemoteChange`). */
+let actingAgentId: string | null = null;
+const currentAgent = () => agentById.get(actingAgentId ?? CURRENT_AGENT_ID)!;
 let seq = 0;
 const uid = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${(++seq).toString(36)}`;
 
@@ -361,10 +427,15 @@ export interface TicketPatch {
   addTag?: string;
   removeTag?: string;
   following?: boolean;
+  spam?: boolean;
 }
 
 export async function updateTicket(id: string, patch: TicketPatch): Promise<Ticket> {
   await delay(140);
+  return patchTicket(id, patch);
+}
+
+function patchTicket(id: string, patch: TicketPatch): Ticket {
   const t = findRecord(id);
 
   if (patch.teamId !== undefined && patch.teamId !== t.teamId) {
@@ -414,6 +485,10 @@ export async function updateTicket(id: string, patch: TicketPatch): Promise<Tick
     t.tags = t.tags.filter((x) => x !== patch.removeTag);
     log(t, "tag_removed", `Tag "${patch.removeTag}" removed`);
   }
+  if (patch.spam !== undefined && patch.spam !== t.spam) {
+    t.spam = patch.spam;
+    log(t, "marked_spam", patch.spam ? "Marked as spam" : "Removed from spam");
+  }
   if (patch.following !== undefined) {
     const me = CURRENT_AGENT_ID;
     t.followerIds = patch.following ? [...new Set([...t.followerIds, me])] : t.followerIds.filter((x) => x !== me);
@@ -427,6 +502,10 @@ export async function addMessage(
 ): Promise<Ticket> {
   const parsed = composerSchema.parse(input);
   await delay(220);
+  return appendMessage(id, parsed, input.setStatus);
+}
+
+function appendMessage(id: string, parsed: ComposerInput, setStatus?: TicketStatus): Ticket {
   const t = findRecord(id);
   const me = currentAgent();
   const now = new Date().toISOString();
@@ -440,6 +519,7 @@ export async function addMessage(
     visibility: parsed.visibility,
     channel: t.source === "chat" || t.source === "social" ? t.source : "email",
     attachments,
+    mentions: mentionsIn(parsed.body),
   });
   if (parsed.visibility === "public") {
     t.lastReplyAt = now;
@@ -448,8 +528,27 @@ export async function addMessage(
   } else {
     log(t, "note_added", "Internal note added");
   }
-  if (input.setStatus) applyStatus(t, input.setStatus);
+  if (setStatus) applyStatus(t, setStatus);
   return toTicket(t, Date.now());
+}
+
+/** A change made by another agent — what a real-time server event would carry. */
+export type RemoteChange = { patch: TicketPatch } | { message: ComposerInput };
+
+/**
+ * Applies another agent's change to the store, attributed to them in the
+ * activity log. Mock-only: with a real backend these changes happen on the
+ * server and the client just refetches when the presence channel reports them.
+ */
+export function applyRemoteChange(agentId: string, ticketId: string, change: RemoteChange) {
+  if (!agentById.has(agentId)) throw new NotFoundError("Agent");
+  actingAgentId = agentId;
+  try {
+    if ("patch" in change) patchTicket(ticketId, change.patch);
+    else appendMessage(ticketId, composerSchema.parse(change.message));
+  } finally {
+    actingAgentId = null;
+  }
 }
 
 export async function mergeTicket(primaryId: string, secondaryId: string): Promise<Ticket> {
@@ -470,6 +569,7 @@ export async function mergeTicket(primaryId: string, secondaryId: string): Promi
     visibility: "internal",
     channel: "portal",
     attachments: [],
+    mentions: [],
   });
   log(primary, "merged", `Merged #${secondary.ticketNumber} into this ticket`);
   return toTicket(primary, Date.now());
@@ -508,6 +608,7 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
       resolvedAt: null,
     },
     tags: [],
+    spam: false,
     createdAt: iso,
     updatedAt: iso,
     lastReplyAt: iso,
@@ -521,6 +622,7 @@ export async function createTicket(input: CreateTicketInput): Promise<Ticket> {
         visibility: "public",
         channel: data.source,
         attachments: [],
+        mentions: [],
       },
     ],
     activities: [

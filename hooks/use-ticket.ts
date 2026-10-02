@@ -25,6 +25,7 @@ function useSyncTicket() {
     qc.setQueryData(ticketKeys.detail(ticket.id), ticket);
     void qc.invalidateQueries({ queryKey: ticketKeys.lists() });
     void qc.invalidateQueries({ queryKey: ticketKeys.counts() });
+    void qc.invalidateQueries({ queryKey: ticketKeys.overview() });
   };
 }
 
@@ -48,6 +49,7 @@ export function useBulkUpdateTickets() {
       for (const t of tickets) qc.setQueryData(ticketKeys.detail(t.id), t);
       void qc.invalidateQueries({ queryKey: ticketKeys.lists() });
       void qc.invalidateQueries({ queryKey: ticketKeys.counts() });
+      void qc.invalidateQueries({ queryKey: ticketKeys.overview() });
     },
     onError: failed,
   });

@@ -23,6 +23,7 @@ export const TICKET_VIEWS = [
   "high_priority",
   "sla_at_risk",
   "overdue",
+  "recent",
 ] as const;
 export type TicketView = (typeof TICKET_VIEWS)[number];
 
@@ -69,6 +70,8 @@ export const ticketFiltersSchema = z.object({
   customer: idList,
   /** Tag names; a ticket matches when it carries any of them. */
   tags: idList,
+  /** Spam is hidden everywhere unless asked for explicitly. */
+  spam: z.enum(["only"]).optional().catch(undefined),
   created: z.enum(DATE_RANGES).optional().catch(undefined),
   updated: z.enum(DATE_RANGES).optional().catch(undefined),
 });
@@ -101,6 +104,7 @@ export const FILTER_KEYS = [
   "updated",
   "sla",
   "tags",
+  "spam",
 ] as const satisfies readonly (keyof TicketFilters)[];
 export type FilterKey = (typeof FILTER_KEYS)[number];
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LinkSimpleIcon, PaperclipIcon, TagIcon, TicketIcon } from "@phosphor-icons/react/dist/ssr";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DetailCard, DetailTabs, PageShell, SecondaryButton, DetailPrimaryButton } from "@/components/shared/desk-ui";
 import { EmptyState, ErrorState } from "@/components/shared/state-panels";
+import { useRegisterAction } from "@/components/layout/actions-context";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { useTicket } from "@/hooks/use-ticket";
 import type { Ticket } from "@/lib/types/ticket";
@@ -19,6 +20,8 @@ import { TicketHeaderActions, TicketIdentity } from "./ticket-header";
 import { TicketMeta } from "./ticket-meta";
 import { TicketNextAction } from "./ticket-next-action";
 import { TicketSlaCard } from "./ticket-sla-card";
+import { TicketSpamNotice } from "./ticket-spam-notice";
+import { TicketCollaboration } from "./ticket-presence";
 import { TicketTags } from "./ticket-tags";
 
 type Tab = "conversation" | "activity" | "attachments";
@@ -47,23 +50,10 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
     });
   }, []);
 
-  // R = reply, N = internal note (ignored while typing, in menus/dialogs, or with modifiers).
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable=true], [role=dialog], [role=menu]")) return;
-      if (e.key === "r") {
-        e.preventDefault();
-        openComposer("public");
-      } else if (e.key === "n") {
-        e.preventDefault();
-        openComposer("internal");
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [openComposer]);
+  // R / N (and the command menu) — only once the ticket has loaded.
+  const loaded = !!ticket;
+  useRegisterAction("reply", () => openComposer("public"), loaded);
+  useRegisterAction("internal-note", () => openComposer("internal"), loaded);
 
   if (!hydrated || isPending) return <TicketDetailSkeleton />;
   if (isError) {
@@ -104,11 +94,12 @@ export function TicketDetail({ ticketId }: { ticketId: string }) {
   return (
     <PageShell>
       <TicketIdentity ticket={ticket} />
+      <TicketCollaboration ticket={ticket} className="-mt-2" />
       <DetailTabs label="Ticket sections" tabs={tabs} active={tab} onChange={setTab} actions={<TicketHeaderActions ticket={ticket} onReply={() => openComposer("public")} />} />
 
       {tab === "conversation" && (
         <>
-          <TicketNextAction ticket={ticket} onReply={() => openComposer("public")} />
+          {ticket.spam ? <TicketSpamNotice ticket={ticket} /> : <TicketNextAction ticket={ticket} onReply={() => openComposer("public")} />}
           <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,400px)]">
             <TicketConversation
               ticket={ticket}
