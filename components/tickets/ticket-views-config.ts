@@ -10,6 +10,7 @@ import {
   TimerIcon,
   TrayIcon,
   UserCircleIcon,
+  UsersIcon,
   ArchiveIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { TicketView } from "@/lib/schemas/ticket";
@@ -39,6 +40,12 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
     description: "Unresolved tickets waiting for an owner.",
     icon: CircleDashedIcon,
     empty: { title: "No unassigned tickets", hint: "You're all caught up — every ticket has an owner." },
+  },
+  team: {
+    label: "Team",
+    description: "Unresolved tickets for your team.",
+    icon: UsersIcon,
+    empty: { title: "Nothing open for your team", hint: "Your team's queue is clear." },
   },
   open: {
     label: "Open",
@@ -93,6 +100,4 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
 /** Views shown as tabs above the list; the rest live under "More views". */
 export const PRIMARY_VIEWS: TicketView[] = ["all", "mine", "unassigned", "high_priority", "sla_at_risk", "overdue"];
 export const STATUS_VIEWS: TicketView[] = ["open", "pending", "on_hold", "resolved", "closed"];
-/** Compact list for the sidebar under Tickets. */
-export const SIDEBAR_VIEWS: TicketView[] = ["all", "mine", "unassigned", "open", "pending", "on_hold", "resolved", "closed"];
 

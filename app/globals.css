@@ -5,36 +5,36 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ── Desk tokens ─────────────────────────────────────────────────────
-   Same token structure and UI language as ServiceOps; only the palette
-   is Desk's. Teal marks actions, links and the active state; text uses
-   the Desk depth navy; the sidebar and table headers sit on Desk tint. */
+   EVOQ Desk palette: emerald-teal marks actions, links and the active
+   state; text runs on neutral grey ink; the page sits on a cool grey
+   canvas with white panels, and the sidebar on an off-white rail. */
 :root {
-  --desk-depth: #0f2f3f;
-  --desk: #0d9488;
-  --desk-action: #14b8a6;
-  --desk-hover: #2dd4bf;
-  --desk-soft: #99f6e4;
-  --desk-tint: #f0fdfa;
-  --desk-surface: #f8fffe;
-  --desk-10: rgb(13 148 136 / 0.1);
-  --desk-depth-10: rgb(15 47 63 / 0.08);
-  /* Pressed / hover fill for teal buttons — a blend of two Desk colours. */
-  --desk-press: color-mix(in srgb, var(--desk) 82%, var(--desk-depth));
+  --desk-depth: #101828;
+  --desk: #0f9d7a;
+  --desk-action: #12b28a;
+  --desk-hover: #34d3a8;
+  --desk-soft: #a7f3dc;
+  --desk-tint: #ecf8f4;
+  --desk-surface: #f7fcfa;
+  --desk-10: rgb(15 157 122 / 0.1);
+  --desk-depth-10: rgb(16 24 40 / 0.06);
+  /* Pressed / hover fill for brand buttons — a blend of two Desk colours. */
+  --desk-press: color-mix(in srgb, var(--desk) 85%, var(--desk-depth));
 
   --sidebar-w: 260px;
   --header-h: 72px;
 
   --ink: var(--desk-depth);
-  --ink-body: #3a4d55;
-  --ink-muted: #5e6f76;
-  --ink-faint: #94a3a8;
-  --border-color: #e3e9e9;
-  --border-soft: #eef2f2;
-  --bg-page: #ffffff;
+  --ink-body: #344054;
+  --ink-muted: #667085;
+  --ink-faint: #98a2b3;
+  --border-color: #e4e7ec;
+  --border-soft: #eef0f3;
+  --bg-page: #f6f7f9;
   --bg-card: #ffffff;
-  --bg-sidebar: var(--desk-tint);
-  --card-shadow: 0 1px 2px rgb(15 47 63 / 0.04), 0 8px 24px rgb(15 47 63 / 0.05);
-  --pop-shadow: 0 12px 40px rgb(15 47 63 / 0.12);
+  --bg-sidebar: #fbfcfd;
+  --card-shadow: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.04);
+  --pop-shadow: 0 12px 40px rgb(16 24 40 / 0.12);
 
   /* shadcn/ui tokens mapped onto the Desk palette */
   --background: var(--bg-page);
@@ -47,7 +47,7 @@
   --primary-foreground: #ffffff;
   --secondary: var(--desk-tint);
   --secondary-foreground: var(--ink);
-  --muted: #f3f6f6;
+  --muted: #f2f4f7;
   --muted-foreground: var(--ink-muted);
   --accent: var(--desk-tint);
   --accent-foreground: var(--ink);
@@ -212,7 +212,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #cfdcdc transparent;
+    scrollbar-color: #d0d5dd transparent;
   }
   .scrollbar-none {
     scrollbar-width: none;

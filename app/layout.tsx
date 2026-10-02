@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { DeskHeader } from "@/components/layout/desk-header";
 import { DeskSidebar } from "@/components/layout/desk-sidebar";
+import { QuickActions } from "@/components/layout/quick-actions";
 import { ShellContent, ShellProvider } from "@/components/layout/shell-context";
 import "./globals.css";
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <DeskHeader />
             <DeskSidebar />
             <ShellContent>{children}</ShellContent>
+            <QuickActions />
           </ShellProvider>
         </Providers>
       </body>

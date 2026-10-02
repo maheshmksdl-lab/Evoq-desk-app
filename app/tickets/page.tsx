@@ -10,9 +10,9 @@ export default function TicketsPage() {
     // The list reads its state from the URL, so it renders on the client inside Suspense.
     <Suspense
       fallback={
-        <div className="space-y-5 px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-          <div className="h-[120px]" />
-          <div className="rounded-2xl border border-line-soft bg-card p-4 shadow-card">
+        <div className="px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
+          <div className="overflow-hidden rounded-2xl border border-line-soft bg-card shadow-card">
+            <div className="h-[112px]" />
             <TicketTableSkeleton />
           </div>
         </div>

@@ -7,7 +7,7 @@
  */
 import { AGENTS, CURRENT_AGENT_ID, TEAMS } from "@/lib/mock-data/agents";
 import { CONTACTS, CUSTOMERS } from "@/lib/mock-data/customers";
-import { buildTickets, SLA_POLICY, ticketNumber } from "@/lib/mock-data/tickets";
+import { buildTickets, SLA_POLICY, SUGGESTED_TAGS, ticketNumber } from "@/lib/mock-data/tickets";
 import {
   composerSchema,
   createTicketSchema,
@@ -67,7 +67,13 @@ function findRecord(id: string): TicketRecord {
 
 // ── Shaping ──────────────────────────────────────────────────────────
 
-type TicketBase = Omit<TicketSummary, "messageCount" | "awaiting">;
+type TicketBase = Omit<TicketSummary, "messageCount" | "awaiting" | "preview">;
+
+/** First line of real content: drop a leading greeting, collapse whitespace. */
+function excerpt(body: string, max = 140) {
+  const text = body.replace(/^\s*(hi|hello|hey|dear)\b[^\n]*\n+/i, "").replace(/\s+/g, " ").trim();
+  return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
+}
 
 function toBase(t: TicketRecord, now: number): TicketBase {
   return {
@@ -98,6 +104,7 @@ function toSummary(t: TicketRecord, now: number): TicketSummary {
     ...toBase(t, now),
     messageCount: publicMsgs.length,
     awaiting: last?.authorType === "agent" ? "customer" : "agent",
+    preview: excerpt(last?.body ?? t.description),
   };
 }
 
@@ -153,6 +160,8 @@ function matchesView(t: TicketSummary, view: TicketView): boolean {
       return t.assignee?.id === CURRENT_AGENT_ID && isActive(t.status);
     case "unassigned":
       return !t.assignee && isActive(t.status);
+    case "team":
+      return t.team.id === agentById.get(CURRENT_AGENT_ID)!.teamId && isActive(t.status);
     case "open":
     case "pending":
     case "on_hold":
@@ -206,6 +215,7 @@ function matchesFilters(t: TicketSummary, q: TicketQuery, now: number): boolean 
   if (q.customer.length && !q.customer.includes(t.customer.id)) return false;
   if (q.assignee.length && !q.assignee.includes(t.assignee?.id ?? "unassigned")) return false;
   if (q.sla.length && !(q.sla as string[]).includes(focusClock(t.sla).state)) return false;
+  if (q.tags.length && !q.tags.some((tag) => t.tags.includes(tag))) return false;
   if (q.created && Date.parse(t.createdAt) < rangeStart(q.created, now)) return false;
   if (q.updated && Date.parse(t.updatedAt) < rangeStart(q.updated, now)) return false;
   return true;
@@ -304,12 +314,15 @@ export interface Lookups {
   teams: Team[];
   customers: Customer[];
   contacts: Contact[];
+  /** Every tag in use plus the suggested set, alphabetical. */
+  tags: string[];
   currentAgentId: string;
 }
 
 export async function getLookups(): Promise<Lookups> {
   await delay(40);
-  return { agents: AGENTS, teams: TEAMS, customers: CUSTOMERS, contacts: CONTACTS, currentAgentId: CURRENT_AGENT_ID };
+  const tags = [...new Set([...db().flatMap((t) => t.tags), ...SUGGESTED_TAGS])].sort();
+  return { agents: AGENTS, teams: TEAMS, customers: CUSTOMERS, contacts: CONTACTS, tags, currentAgentId: CURRENT_AGENT_ID };
 }
 
 // ── Mutations ────────────────────────────────────────────────────────

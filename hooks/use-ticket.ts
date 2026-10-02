@@ -39,6 +39,20 @@ export function useUpdateTicket() {
   });
 }
 
+/** One patch applied to several tickets (list bulk actions). */
+export function useBulkUpdateTickets() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ ids, patch }: { ids: string[]; patch: TicketPatch }) => Promise.all(ids.map((id) => updateTicket(id, patch))),
+    onSuccess: (tickets) => {
+      for (const t of tickets) qc.setQueryData(ticketKeys.detail(t.id), t);
+      void qc.invalidateQueries({ queryKey: ticketKeys.lists() });
+      void qc.invalidateQueries({ queryKey: ticketKeys.counts() });
+    },
+    onError: failed,
+  });
+}
+
 export function useAddMessage(id: string) {
   const sync = useSyncTicket();
   return useMutation({

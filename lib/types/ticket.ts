@@ -198,6 +198,8 @@ export interface TicketSummary {
   messageCount: number;
   /** Who spoke last on the public thread — tells agents whose turn it is. */
   awaiting: "agent" | "customer";
+  /** One-line excerpt of the latest public message, for list rows. */
+  preview: string;
 }
 
 export interface CustomerContext {
@@ -209,7 +211,7 @@ export interface CustomerContext {
 }
 
 /** Full ticket shape returned by the detail endpoint. */
-export interface Ticket extends Omit<TicketSummary, "messageCount" | "awaiting"> {
+export interface Ticket extends Omit<TicketSummary, "messageCount" | "awaiting" | "preview"> {
   description: string;
   messages: TicketMessage[];
   activities: TicketActivity[];

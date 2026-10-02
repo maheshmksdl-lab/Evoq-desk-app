@@ -23,10 +23,10 @@ import { cn } from "@/lib/utils";
 
 // ── Tones ────────────────────────────────────────────────────────────
 
-/** Icon-tile / KPI tones — the same semantic set ServiceOps uses, with Desk teal as the brand tone. */
+/** Icon-tile / KPI tones — the same semantic set ServiceOps uses, with Desk emerald-teal as the brand tone. */
 export const TONES = {
-  desk: { fg: "#0D9488", tint: "rgba(13, 148, 136, 0.10)" },
-  depth: { fg: "#0F2F3F", tint: "rgba(15, 47, 63, 0.08)" },
+  desk: { fg: "#0F9D7A", tint: "rgba(15, 157, 122, 0.10)" },
+  depth: { fg: "#101828", tint: "rgba(16, 24, 40, 0.06)" },
   amber: { fg: "#F59E0B", tint: "rgba(245, 158, 11, 0.12)" },
   orange: { fg: "#F97316", tint: "rgba(249, 115, 22, 0.12)" },
   blue: { fg: "#3B82F6", tint: "rgba(59, 130, 246, 0.10)" },
@@ -50,7 +50,7 @@ export function IconTile({ tone, size = 40, children }: { tone: Tone; size?: num
 
 export type PillTone = "teal" | "gray" | "blue" | "green" | "amber" | "orange" | "red" | "purple";
 export const PILL_TONE: Record<PillTone, { fg: string; bg: string }> = {
-  teal: { fg: "#0D9488", bg: "rgba(13,148,136,0.10)" },
+  teal: { fg: "#0F9D7A", bg: "rgba(15,157,122,0.10)" },
   gray: { fg: "#6B7280", bg: "rgba(107,114,128,0.12)" },
   blue: { fg: "#2563EB", bg: "rgba(37,99,235,0.10)" },
   green: { fg: "#16A34A", bg: "rgba(22,163,74,0.10)" },
@@ -141,7 +141,7 @@ export function PrimaryButton({ children, icon: IconCmp, size = "lg", className,
       type="button"
       {...props}
       className={cn(
-        "inline-flex items-center gap-2.5 rounded-xl bg-desk text-button font-semibold whitespace-nowrap text-white shadow-[0_4px_14px_rgba(13,148,136,0.3)] transition-colors hover:bg-desk-press focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action disabled:pointer-events-none disabled:opacity-60",
+        "inline-flex items-center gap-2.5 rounded-xl bg-desk text-button font-semibold whitespace-nowrap text-white shadow-[0_4px_14px_rgba(15,157,122,0.3)] transition-colors hover:bg-desk-press focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action disabled:pointer-events-none disabled:opacity-60",
         size === "lg" ? "h-12 px-6" : "h-10 px-4 text-button-sm",
         className,
       )}
@@ -310,7 +310,9 @@ export interface SelectOption {
 
 /**
  * Dropdown filter. `value === ""` is the "All …" reset state shown as
- * `placeholder`; the trigger turns teal when a value is set.
+ * `placeholder`; the trigger turns to the brand colour when a value is set.
+ * `variant="pill"` is the compact list-toolbar chip ("Status ⌄"); its reset
+ * item reads `resetLabel` so the menu still says "Any status".
  */
 export function FilterSelect({
   value,
@@ -320,6 +322,8 @@ export function FilterSelect({
   icon,
   className,
   label,
+  variant = "field",
+  resetLabel,
 }: {
   value: string;
   options: SelectOption[];
@@ -328,26 +332,30 @@ export function FilterSelect({
   icon?: ReactNode;
   className?: string;
   label: string;
+  variant?: "field" | "pill";
+  resetLabel?: string;
 }) {
   const active = value !== "";
   const current = options.find((o) => o.value === value)?.label ?? placeholder;
+  const pill = variant === "pill";
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        aria-label={`${label}: ${current}`}
+        aria-label={`${label}: ${active ? current : (resetLabel ?? placeholder)}`}
         className={cn(
-          "flex h-11 items-center gap-2.5 rounded-xl border bg-card px-3.5 text-body text-ink transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action data-[state=open]:border-desk",
-          active ? "border-desk" : "border-line",
+          "flex items-center border bg-card text-ink transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action data-[state=open]:border-desk",
+          pill ? "h-8 max-w-[200px] gap-1.5 rounded-lg px-2.5 text-[13px] font-medium" : "h-11 gap-2.5 rounded-xl px-3.5 text-body",
+          active ? (pill ? "border-desk/40 bg-desk-tint text-desk" : "border-desk") : pill ? "border-line text-ink-body" : "border-line",
           className,
         )}
       >
         {icon}
         <span className={cn("flex-1 truncate text-left", icon && !active && "text-ink-muted")}>{current}</span>
-        <CaretDownIcon size={14} aria-hidden className="shrink-0 text-ink-muted" />
+        <CaretDownIcon size={pill ? 12 : 14} aria-hidden className={cn("shrink-0", active && pill ? "text-desk" : "text-ink-muted")} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="max-h-[340px] w-auto min-w-[200px] rounded-xl">
         <DropdownMenuItem onSelect={() => onChange("")} className={cn("rounded-lg", !active && "bg-desk-tint")}>
-          <span className="flex-1">{placeholder}</span>
+          <span className="flex-1">{resetLabel ?? placeholder}</span>
           {!active && <CheckIcon size={14} aria-hidden className="text-desk" />}
         </DropdownMenuItem>
         {options.map((o, i) => {
@@ -567,7 +575,7 @@ export function SideDrawer({
       <SheetContent
         side={side}
         showCloseButton={false}
-        className={cn("gap-0 border-line p-0 shadow-[-12px_0_48px_rgba(15,47,63,0.10)]", side === "bottom" ? "max-h-[90dvh] rounded-t-2xl" : "w-full")}
+        className={cn("gap-0 border-line p-0 shadow-[-12px_0_48px_rgba(16,24,40,0.10)]", side === "bottom" ? "max-h-[90dvh] rounded-t-2xl" : "w-full")}
         style={side === "right" ? { maxWidth: width } : undefined}
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line bg-desk-tint px-5 py-4 sm:px-6">
@@ -624,7 +632,7 @@ export function DrawerActions({ onCancel, submitLabel, disabled, onSubmit, submi
         type={submitType}
         onClick={onSubmit}
         disabled={disabled}
-        className="h-10 rounded-[9px] bg-desk px-6 text-button font-bold text-white shadow-[0_1px_8px_rgba(13,148,136,0.35)] transition-colors hover:bg-desk-press disabled:opacity-60"
+        className="h-10 rounded-[9px] bg-desk px-6 text-button font-bold text-white shadow-[0_1px_8px_rgba(15,157,122,0.35)] transition-colors hover:bg-desk-press disabled:opacity-60"
       >
         {submitLabel}
       </button>
