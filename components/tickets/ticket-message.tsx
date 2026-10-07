@@ -61,7 +61,8 @@ export function TicketMessage({
 
   return (
     <li
-      className={cn("group/msg flex gap-3 border-b border-line-soft px-5 py-4", internal && "bg-[#FFFBEB]")}
+      tabIndex={-1}
+      className={cn("group/msg flex gap-3 border-b border-line-soft px-5 py-4 outline-none", internal && "bg-[#FFFBEB]")}
       aria-label={`${kind} from ${message.author.name}`}
     >
       <PersonAvatar name={message.author.name} src={message.author.avatar} size="lg" />

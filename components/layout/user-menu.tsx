@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { signOut } from "@/lib/auth";
 import { AGENTS, CURRENT_AGENT_ID, TEAMS } from "@/lib/mock-data/agents";
 import { PersonAvatar } from "@/components/shared/person-avatar";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,11 @@ const item = "gap-4 rounded-[10px] px-3.5 py-2.5 text-[0.875rem] font-medium tex
 /** Avatar → account menu (ServiceOps user menu). */
 export function UserMenu() {
   const [availability, setAvailability] = useState<Availability>(me.status);
+  // A full page load: the in-memory app state (queries, open ticket) goes with the session.
+  const logOut = () => {
+    signOut();
+    window.location.replace("/login");
+  };
   const notInPreview = () => toast.info("Not available in this preview", { description: "Account settings arrive with the Admin module." });
   const dot = AVAILABILITY.find((a) => a.value === availability)!.dot;
 
@@ -74,7 +80,7 @@ export function UserMenu() {
           >
             <KeyboardIcon size={18} weight="duotone" aria-hidden /> Keyboard shortcuts
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={notInPreview} className={cn(item, "text-[#ef4444] focus:text-[#dc2626] [&_svg]:text-current")}>
+          <DropdownMenuItem onSelect={logOut} className={cn(item, "text-[#ef4444] focus:text-[#dc2626] [&_svg]:text-current")}>
             <SignOutIcon size={18} weight="duotone" aria-hidden /> Log out
           </DropdownMenuItem>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode, type Ref, type RefObject } from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -63,6 +63,9 @@ import { TicketCollaboration, TypingIndicator } from "./ticket-presence";
 import { TicketSlaCard } from "./ticket-sla-card";
 import { TicketSpamNotice } from "./ticket-spam-notice";
 import { TicketTags } from "./ticket-tags";
+
+/** Comments shown before "Load More". */
+const INITIAL_COMMENTS = 3;
 
 type Tab = "conversation" | "details" | "customer" | "related" | "activity";
 type HeaderMenu = "status" | "assignee" | "priority";
@@ -493,44 +496,75 @@ function Conversation({
   onInsert: (text: string) => void;
 }) {
   const scroller = useRef<HTMLDivElement>(null);
-  const knowledge = useRef<HTMLElement>(null);
+  const list = useRef<HTMLOListElement>(null);
+  const count = ticket.messages.length;
+  const [showAll, setShowAll] = useState(false);
+  const [seen, setSeen] = useState(count);
+  // A reply or note was just added: show the whole thread so the agent sees it land.
+  if (count !== seen) {
+    setSeen(count);
+    if (count > seen) setShowAll(true);
+  }
+  const visible = showAll ? ticket.messages : ticket.messages.slice(0, INITIAL_COMMENTS);
+  const hidden = count - visible.length;
 
-  // Open on the latest message with the composer under it (suggestions just below), and follow new replies and notes.
+  // …and bring the new message into view. Only when the count grew — on open the thread starts at the top.
+  const shownCount = useRef(count);
   useEffect(() => {
-    const box = scroller.current;
-    if (!box || !knowledge.current) return;
-    const last = box.querySelector<HTMLElement>("ol > li:last-child");
-    // Short panes (small tablets, landscape phones) can't fit both — open on the latest message there.
-    const top = box.clientHeight < 420 && last ? last.offsetTop : knowledge.current.offsetTop - box.clientHeight;
-    box.scrollTo({ top: Math.max(0, top) });
-  }, [ticket.messages.length]);
+    const grew = count > shownCount.current;
+    shownCount.current = count;
+    if (!grew) return;
+    const last = list.current?.lastElementChild as HTMLElement | null;
+    if (scroller.current && last) scroller.current.scrollTo({ top: Math.max(0, last.offsetTop - 16), behavior: "smooth" });
+  }, [count]);
+
+  const loadMore = () => {
+    setShowAll(true);
+    // Keep the reader's place: focus the first comment that was just revealed.
+    requestAnimationFrame(() => (list.current?.children[INITIAL_COMMENTS] as HTMLElement | undefined)?.focus({ preventScroll: true }));
+  };
 
   return (
+    // The whole tab scrolls as one: thread, then the composer and suggestions in normal flow.
     <div ref={scroller} className="relative min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-      <ol aria-label="Conversation">
-        {ticket.messages.map((m, i) => (
+      <ol ref={list} aria-label="Conversation">
+        {visible.map((m, i) => (
           <TicketMessage key={m.id} message={m} isFirst={i === 0} contactEmail={ticket.contact.email} onQuote={onInsert} />
         ))}
       </ol>
-      {/* Stays in reach while scrolling back through the thread — on screens tall enough to leave the thread room. */}
-      <div className="bottom-0 z-10 space-y-3 bg-card px-4 pt-3 pb-4 [@media(min-height:800px)]:sticky">
+      {hidden > 0 && (
+        <div className="border-b border-line-soft px-5 py-3">
+          <button
+            type="button"
+            onClick={loadMore}
+            aria-label={`Load ${hidden} more ${hidden === 1 ? "comment" : "comments"}`}
+            className="rounded text-label font-semibold text-desk hover:text-desk-press hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action"
+          >
+            Load More
+          </button>
+          <span className="ml-2 text-caption text-ink-muted" aria-hidden>
+            {hidden} more {hidden === 1 ? "comment" : "comments"}
+          </span>
+        </div>
+      )}
+      <div className="space-y-3 px-4 pt-3 pb-4">
         <TypingIndicator ticketId={ticket.id} />
         <TicketComposer ticket={ticket} mode={mode} onModeChange={onModeChange} textareaRef={textareaRef} handle={composer} />
       </div>
-      <SuggestedKnowledge ref={knowledge} ticket={ticket} onInsert={(a) => onInsert(articleLink(a))} />
+      <SuggestedKnowledge ticket={ticket} onInsert={(a) => onInsert(articleLink(a))} />
     </div>
   );
 }
 
 // ── Suggested knowledge ──────────────────────────────────────────────
 
-function SuggestedKnowledge({ ticket, onInsert, ref }: { ticket: Ticket; onInsert: (a: KnowledgeArticle) => void; ref: Ref<HTMLElement> }) {
+function SuggestedKnowledge({ ticket, onInsert }: { ticket: Ticket; onInsert: (a: KnowledgeArticle) => void }) {
   const [all, setAll] = useState(false);
   const suggested = suggestArticles(ticket, 4);
   const articles = all ? [...suggested, ...KNOWLEDGE_ARTICLES.filter((a) => !suggested.includes(a))] : suggested.slice(0, 2);
 
   return (
-    <section ref={ref} aria-label="Suggested knowledge" className="border-t border-line-soft px-4 pt-4 pb-5">
+    <section aria-label="Suggested knowledge" className="border-t border-line-soft px-4 pt-4 pb-5">
       <div className="mb-3 flex items-center justify-between gap-3 px-1">
         <h3 className="text-label font-semibold text-ink">{all ? "Knowledge articles" : "Suggested knowledge"}</h3>
         <button

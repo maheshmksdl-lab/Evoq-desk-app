@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Providers } from "@/components/providers";
-import { DeskHeader } from "@/components/layout/desk-header";
-import { DeskSidebar } from "@/components/layout/desk-sidebar";
-import { QuickActions } from "@/components/layout/quick-actions";
-import { ShellContent, ShellProvider } from "@/components/layout/shell-context";
+import { AppChrome } from "@/components/layout/app-chrome";
 import "./globals.css";
 
 // Inter: the single typeface across Desk (same as ServiceOps).
@@ -30,12 +27,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           Skip to content
         </a>
         <Providers>
-          <ShellProvider>
-            <DeskHeader />
-            <DeskSidebar />
-            <ShellContent>{children}</ShellContent>
-            <QuickActions />
-          </ShellProvider>
+          <AppChrome>{children}</AppChrome>
         </Providers>
       </body>
     </html>

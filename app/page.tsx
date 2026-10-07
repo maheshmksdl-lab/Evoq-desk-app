@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
+import { HOME_ROUTE } from "@/lib/auth-routes";
 
 export default function Home() {
-  redirect("/tickets");
+  redirect(HOME_ROUTE);
 }
