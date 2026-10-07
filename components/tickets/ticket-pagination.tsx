@@ -24,6 +24,7 @@ export function TicketPagination({
   total,
   onPage,
   onPageSize,
+  compact = false,
 }: {
   page: number;
   pageCount: number;
@@ -31,14 +32,16 @@ export function TicketPagination({
   total: number;
   onPage: (p: number) => void;
   onPageSize: (s: (typeof PAGE_SIZES)[number]) => void;
+  /** Narrow queue column beside an open ticket: count and pages only, stacked. */
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-between gap-3 border-t border-line-soft px-4 py-3 sm:flex-row sm:px-5">
+    <div className={cn("flex flex-col items-center justify-between gap-3 border-t border-line-soft px-4 py-3", !compact && "sm:flex-row sm:px-5")}>
       <p className="text-[13px] text-ink-muted" aria-live="polite">
         {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} tickets
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <FilterSelect
+        {!compact && <FilterSelect
           variant="pill"
           label="Rows per page"
           value={String(pageSize)}
@@ -46,7 +49,7 @@ export function TicketPagination({
           options={PAGE_SIZES.map((s) => ({ value: String(s), label: `${s} per page` }))}
           onChange={(v) => onPageSize(Number(v || 25) as (typeof PAGE_SIZES)[number])}
           className="border-line bg-card text-ink-body"
-        />
+        />}
         {pageCount > 1 && (
           <nav aria-label="Pagination" className="flex flex-wrap items-center justify-center gap-1.5">
             <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => onPage(page - 1)} className={btn}>

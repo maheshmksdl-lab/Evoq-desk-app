@@ -30,7 +30,7 @@ export function TicketViewSwitcher({ active, counts, onSelect }: { active: Ticke
           aria-label={`Current view: ${meta.label}. Change view`}
           className="-ml-1.5 flex max-w-full items-center gap-2 rounded-lg px-1.5 py-0.5 text-left transition-colors hover:bg-desk-depth-10 focus-visible:outline-2 focus-visible:outline-desk-action data-[state=open]:bg-desk-depth-10"
         >
-          <h1 className="truncate text-[20px] leading-7 font-semibold tracking-tight text-ink">{meta.label}</h1>
+          <h1 className="truncate text-h1 font-bold tracking-tight text-ink sm:text-display">{meta.label}</h1>
           {counts && <span className="rounded-md bg-desk-depth-10 px-1.5 text-[12px] leading-5 font-semibold text-ink-body">{counts[active]}</span>}
           <CaretDownIcon size={14} weight="bold" aria-hidden className="shrink-0 text-ink-muted" />
         </DropdownMenuTrigger>
@@ -54,7 +54,7 @@ export function TicketViewSwitcher({ active, counts, onSelect }: { active: Ticke
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-      <p className="mt-0.5 truncate text-[13px] text-ink-muted">{meta.description}</p>
+      <p className="mt-0.5 truncate text-body text-ink-muted">{meta.description}</p>
     </div>
   );
 }

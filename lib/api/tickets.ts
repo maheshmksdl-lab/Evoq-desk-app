@@ -7,7 +7,8 @@
  */
 import { AGENTS, CURRENT_AGENT_ID, TEAMS } from "@/lib/mock-data/agents";
 import { CONTACTS, CUSTOMERS } from "@/lib/mock-data/customers";
-import { buildTickets, mentionsIn, SLA_POLICY, SUGGESTED_TAGS, ticketNumber } from "@/lib/mock-data/tickets";
+import { KNOWLEDGE_ARTICLES, type KnowledgeArticle } from "@/lib/mock-data/knowledge";
+import { buildTickets, LISTING_ONLY_TICKET_IDS, mentionsIn, SLA_POLICY, SUGGESTED_TAGS, ticketNumber } from "@/lib/mock-data/tickets";
 import {
   composerSchema,
   createTicketSchema,
@@ -39,6 +40,7 @@ import type {
   TicketRecord,
   TicketStatus,
   TicketSummary,
+  TicketSource,
   TicketType,
 } from "@/lib/types/ticket";
 
@@ -302,43 +304,174 @@ export async function getTicket(id: string): Promise<Ticket | null> {
   }
 }
 
-export interface Overview {
-  agent: Agent;
-  /** The signed-in agent's unresolved tickets, split the way the day is planned. */
-  counts: { mine: number; needsReply: number; waiting: number; atRisk: number; overdue: number };
-  /** What to work on next: breached, then at-risk, then awaiting a reply — soonest SLA first. */
-  attention: TicketSummary[];
-  /** Internal notes and replies that @mention the agent, newest first. */
-  mentions: { ticket: TicketSummary; message: TicketMessage }[];
+export const OVERVIEW_RANGES = ["today", "7d", "30d"] as const satisfies readonly DateRange[];
+export type OverviewRange = (typeof OVERVIEW_RANGES)[number];
+
+/** A figure now and over the comparison window (yesterday / the previous period). */
+export interface Trend {
+  value: number | null;
+  previous: number | null;
 }
 
-/** "My day" for the signed-in agent. */
-export async function getOverview(): Promise<Overview> {
+export interface TeamActivityItem {
+  id: string;
+  agent: Agent;
+  /** What they did, e.g. "resolved" or "changed status to Pending on". */
+  action: string;
+  kind: "reply" | "resolved" | "assigned" | "note" | "status" | "priority" | "tag";
+  ticket: { id: string; ticketNumber: string };
+  timestamp: string;
+}
+
+export interface Overview {
+  agent: Agent;
+  /** Queue sizes now and 24 hours ago. */
+  queues: { mine: Trend; unassigned: Trend; atRisk: Trend; waiting: Trend };
+  /** The agent's unresolved tickets, most urgent first (breached, at risk, awaiting a reply, then the rest). */
+  attention: TicketSummary[];
+  attentionTotal: number;
+  /** Latest things teammates did on tickets. */
+  activity: TeamActivityItem[];
+  /** Team performance over the range vs the window before it. */
+  performance: { received: Trend; resolved: Trend; firstResponseMins: Trend; slaCompliance: Trend };
+  /** Latest customer message per ticket, newest first. */
+  messages: { ticket: TicketSummary; message: TicketMessage }[];
+  articles: KnowledgeArticle[];
+  /** Tickets created in the range, by source. */
+  channels: { source: TicketSource; count: number }[];
+  /** Unresolved tickets whose SLA has already been missed. */
+  breached: number;
+}
+
+const DAY_MS = 86_400_000;
+const RANGE_DAYS: Record<OverviewRange, number> = { today: 1, "7d": 7, "30d": 30 };
+const STATUS_BY_LABEL = new Map(Object.entries(STATUS_META).map(([k, m]) => [m.label.toLowerCase(), k as TicketStatus]));
+
+/** The record as it stood at `at` — rewinds status, assignment and SLA stops logged after it. Null if not yet created. */
+function asOf(t: TicketRecord, at: number): TicketRecord | null {
+  if (Date.parse(t.createdAt) > at) return null;
+  const later = (iso: string | null) => iso !== null && Date.parse(iso) > at;
+  const firstChange = t.activities.find((a) => a.type === "status_changed" && later(a.timestamp));
+  const from = firstChange?.description.match(/^Status changed from (.+?) to /)?.[1]?.toLowerCase();
+  const firstAssign = t.activities.find((a) => a.type === "assigned");
+  return {
+    ...t,
+    status: (from && STATUS_BY_LABEL.get(from)) || t.status,
+    assigneeId: firstAssign && later(firstAssign.timestamp) ? null : t.assigneeId,
+    sla: {
+      ...t.sla,
+      firstRespondedAt: later(t.sla.firstRespondedAt) ? null : t.sla.firstRespondedAt,
+      resolvedAt: later(t.sla.resolvedAt) ? null : t.sla.resolvedAt,
+    },
+  };
+}
+
+const agentByName = new Map(AGENTS.map((a) => [a.name, a]));
+
+/** Teammate activity → one line in the feed; null for events the feed doesn't show. */
+function toActivityItem(t: TicketRecord, a: TicketRecord["activities"][number]): TeamActivityItem | null {
+  const base = { id: a.id, ticket: { id: t.id, ticketNumber: t.ticketNumber }, timestamp: a.timestamp };
+  const actor = agentByName.get(a.actor);
+  const to = a.description.match(/ to (.+)$/)?.[1];
+  switch (a.type) {
+    case "assigned": {
+      const agent = agentByName.get(a.description.replace(/^Assigned to /, ""));
+      return agent ? { ...base, agent, kind: "assigned", action: "was assigned" } : null;
+    }
+    case "agent_replied":
+      return actor ? { ...base, agent: actor, kind: "reply", action: "replied to" } : null;
+    case "note_added":
+      return actor ? { ...base, agent: actor, kind: "note", action: "added an internal note to" } : null;
+    case "status_changed":
+      if (!actor || !to) return null;
+      return to === "Resolved"
+        ? { ...base, agent: actor, kind: "resolved", action: "resolved" }
+        : { ...base, agent: actor, kind: "status", action: `changed status to ${to} on` };
+    case "priority_changed":
+      return actor && to ? { ...base, agent: actor, kind: "priority", action: `changed priority to ${to} on` } : null;
+    case "tag_added":
+      return actor ? { ...base, agent: actor, kind: "tag", action: "tagged" } : null;
+    default:
+      return null;
+  }
+}
+
+/** Overview for the signed-in agent: queues, what to work on, and the team's day. */
+export async function getOverview(range: OverviewRange = "today"): Promise<Overview> {
   await delay();
   const now = Date.now();
   const me = currentAgent();
-  const live = db().filter((t) => !t.spam);
-  const mine = live.map((t) => toSummary(t, now)).filter((t) => t.assignee?.id === me.id && isActive(t.status));
+  // The extra listing tickets never count toward the Overview.
+  const live = db().filter((t) => !t.spam && !LISTING_ONLY_TICKET_IDS.has(t.id));
+  const rows = live.map((t) => toSummary(t, now));
+  const dayAgo = now - DAY_MS;
+  const yesterday = live.flatMap((t) => {
+    const rec = asOf(t, dayAgo);
+    return rec ? [toSummary(rec, dayAgo)] : [];
+  });
+  const queue = (view: TicketView): Trend => ({
+    value: rows.filter((t) => matchesView(t, view)).length,
+    previous: yesterday.filter((t) => matchesView(t, view)).length,
+  });
+
   const state = (t: TicketSummary) => focusClock(t.sla).state;
   const rank = (t: TicketSummary) => (state(t) === "breached" ? 0 : state(t) === "at_risk" ? 1 : t.awaiting === "agent" && t.status === "open" ? 2 : 3);
-  const mentions = live
-    .flatMap((t) => t.messages.filter((m) => m.mentions.includes(me.id) || m.mentions.includes(me.teamId)).map((message) => ({ ticket: toSummary(t, now), message })))
-    .sort((a, b) => b.message.timestamp.localeCompare(a.message.timestamp))
-    .slice(0, 5);
+  const mine = rows.filter((t) => matchesView(t, "mine")).sort((a, b) => rank(a) - rank(b) || slaSortValue(a.sla) - slaSortValue(b.sla));
+
+  // Performance: the range, against a window of the same length right before it.
+  const span = RANGE_DAYS[range] * DAY_MS;
+  type Window = readonly [from: number, to: number];
+  const current: Window = [now - span, now];
+  const before: Window = [now - 2 * span, now - span];
+  const within = (iso: string | null, [from, to]: Window) => iso !== null && Date.parse(iso) > from && Date.parse(iso) <= to;
+  const perf = (w: Window) => {
+    const responded = live.filter((t) => within(t.sla.firstRespondedAt, w));
+    // SLA clocks that stopped — or ran out — inside the window.
+    const clocks = live
+      .flatMap((t) => [
+        [t.sla.firstResponseDue, t.sla.firstRespondedAt] as const,
+        [t.sla.resolutionDue, t.sla.resolvedAt] as const,
+      ])
+      .filter(([due, done]) => within(done, w) || (done === null && within(due, w)));
+    const met = clocks.filter(([due, done]) => done !== null && Date.parse(done) <= Date.parse(due)).length;
+    return {
+      received: live.filter((t) => within(t.createdAt, w)).length,
+      resolved: live.filter((t) => within(t.sla.resolvedAt, w)).length,
+      firstResponseMins: responded.length
+        ? Math.round(responded.reduce((sum, t) => sum + Date.parse(t.sla.firstRespondedAt!) - Date.parse(t.createdAt), 0) / responded.length / 60_000)
+        : null,
+      slaCompliance: clocks.length ? Math.round((met / clocks.length) * 100) : null,
+    };
+  };
+  const cur = perf(current);
+  const prev = perf(before);
+  const trend = (k: keyof typeof cur): Trend => ({ value: cur[k], previous: prev[k] });
+
+  const byId = new Map(rows.map((t) => [t.id, t]));
+  const channels = new Map<TicketSource, number>();
+  for (const t of live) if (within(t.createdAt, current)) channels.set(t.source, (channels.get(t.source) ?? 0) + 1);
+
   return {
     agent: me,
-    counts: {
-      mine: mine.length,
-      needsReply: mine.filter((t) => t.awaiting === "agent" && t.status === "open").length,
-      waiting: mine.filter((t) => t.status === "pending").length,
-      atRisk: mine.filter((t) => state(t) === "at_risk").length,
-      overdue: mine.filter((t) => state(t) === "breached").length,
-    },
-    attention: mine
-      .filter((t) => rank(t) < 3)
-      .sort((a, b) => rank(a) - rank(b) || slaSortValue(a.sla) - slaSortValue(b.sla))
-      .slice(0, 6),
-    mentions,
+    queues: { mine: queue("mine"), unassigned: queue("unassigned"), atRisk: queue("sla_at_risk"), waiting: queue("pending") },
+    attention: mine.slice(0, 5),
+    attentionTotal: mine.length,
+    activity: live
+      .flatMap((t) => t.activities.map((a) => toActivityItem(t, a)))
+      .filter((x): x is TeamActivityItem => x !== null && x.agent.id !== me.id)
+      .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+      .slice(0, 5),
+    performance: { received: trend("received"), resolved: trend("resolved"), firstResponseMins: trend("firstResponseMins"), slaCompliance: trend("slaCompliance") },
+    messages: live
+      .flatMap((t) => {
+        const last = t.messages.findLast((m) => m.authorType === "customer" && m.visibility === "public");
+        return last ? [{ ticket: byId.get(t.id)!, message: last }] : [];
+      })
+      .sort((a, b) => b.message.timestamp.localeCompare(a.message.timestamp))
+      .slice(0, 4),
+    articles: [...KNOWLEDGE_ARTICLES].sort((a, b) => b.uses - a.uses).slice(0, 3),
+    channels: [...channels].map(([source, count]) => ({ source, count })),
+    breached: rows.filter((t) => matchesView(t, "overdue")).length,
   };
 }
 

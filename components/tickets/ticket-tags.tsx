@@ -54,6 +54,7 @@ export function TicketTags({ ticketId, tags }: { ticketId: string; tags: string[
           <li>
             <button
               type="button"
+              data-add-tag
               onClick={() => setAdding(true)}
               className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-line px-3 text-caption font-medium text-ink-muted hover:border-desk hover:text-desk"
             >

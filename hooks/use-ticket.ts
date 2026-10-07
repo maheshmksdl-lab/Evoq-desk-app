@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -16,6 +17,15 @@ import { ticketKeys } from "./use-tickets";
 
 export function useTicket(id: string) {
   return useQuery({ queryKey: ticketKeys.detail(id), queryFn: () => getTicket(id), refetchInterval: 60_000 });
+}
+
+/** Warms a ticket's cache (hover, next in queue) so switching to it in the workspace is instant. */
+export function usePrefetchTicket() {
+  const qc = useQueryClient();
+  return useCallback(
+    (id: string) => void qc.prefetchQuery({ queryKey: ticketKeys.detail(id), queryFn: () => getTicket(id), staleTime: 30_000 }),
+    [qc],
+  );
 }
 
 /** Writes the fresh ticket into the cache and refreshes lists / counts. */

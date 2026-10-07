@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PencilSimpleLineIcon, UserCircleIcon } from "@phosphor-icons/react/dist/ssr";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -12,14 +11,16 @@ import { formatFullDate } from "@/lib/format";
 import { focusClock } from "@/lib/sla";
 import { ACTIVE_STATUSES, PRIORITY_META, SLA_META, SOURCE_LABEL, STATUS_META } from "@/lib/ticket-meta";
 import type { TicketSource, TicketSummary } from "@/lib/types/ticket";
+import { ticketHref } from "@/lib/ticket-routes";
 import { cn } from "@/lib/utils";
 import { TicketRowActions } from "./ticket-actions";
+import { TicketLink } from "./ticket-link";
 import { TicketPriorityBadge } from "./ticket-priority-badge";
 import { SLA_ICON, slaClockText, TicketSlaIndicator } from "./ticket-sla-indicator";
 import { SOURCE_ICON } from "./ticket-source-badge";
 import { TicketStatusBadge } from "./ticket-status-badge";
 
-const bodyCell = "px-3 py-3 border-b border-line-soft align-middle";
+const bodyCell = "px-3 border-b border-line-soft align-middle";
 
 const needsReply = (t: TicketSummary) => t.awaiting === "agent" && ACTIVE_STATUSES.includes(t.status);
 
@@ -37,13 +38,13 @@ const CHANNEL_TONE: Record<TicketSource, PillTone> = {
 /** Brand record link (ticket #). */
 export function TicketIdLink({ ticket, className }: { ticket: Pick<TicketSummary, "id" | "ticketNumber">; className?: string }) {
   return (
-    <Link
-      href={`/tickets/${ticket.id}`}
+    <TicketLink
+      ticketId={ticket.id}
       onClick={(e) => e.stopPropagation()}
       className={cn("text-table-cell font-semibold whitespace-nowrap text-desk hover:underline focus-visible:outline-2 focus-visible:outline-desk-action", className)}
     >
       #{ticket.ticketNumber}
-    </Link>
+    </TicketLink>
   );
 }
 
@@ -107,44 +108,55 @@ function SlaCell({ ticket }: { ticket: TicketSummary }) {
   );
 }
 
-/** Columns that collapse when the table is narrow: below xl, or always while the side panel is open. */
-export function narrowClasses(compact: boolean) {
-  return {
-    /** Only shown on a wide table. */
-    wideCell: compact ? "hidden" : "hidden xl:table-cell",
-    /** Only shown on a narrow table. */
-    narrowOnly: compact ? "" : "xl:hidden",
-    /** Visually hidden on a narrow table. */
-    narrowSr: compact ? "sr-only" : "max-xl:sr-only",
-  };
-}
+/**
+ * Column visibility follows the list's own width (container queries on the
+ * table wrapper), so the table adapts both full-width and beside an open ticket.
+ */
+export const LIST_COLS = {
+  /** Priority dot + ticket #, as its own column on a wide list. */
+  number: "hidden @4xl:table-cell",
+  /** …and inside the subject cell on a narrow one, so the subject keeps its width. */
+  numberInline: "@4xl:hidden",
+  customer: "hidden @4xl:table-cell",
+  /** Contact name in the ticket cell while the Customer column is hidden. */
+  customerInline: "@4xl:hidden",
+  updated: "hidden @2xl:table-cell",
+  assigneeName: "@max-3xl:sr-only",
+  typingBadge: "@3xl:hidden",
+};
+
+export type ListDensity = "comfortable" | "compact";
 
 /**
- * Desktop / tablet row. The ticket # is a real link; clicking elsewhere opens the
- * ticket — in the side panel when `onOpen` is given, otherwise on its own page.
+ * Desktop / tablet row. The ticket # is a real link; clicking anywhere else opens
+ * the ticket in the Inbox workspace (`onOpen`), or at its URL when there is none.
  */
 export function TicketRow({
   ticket,
   selected,
   onToggleSelect,
-  open,
+  active,
   onOpen,
-  compact = false,
+  onIntent,
   typing,
+  density = "comfortable",
 }: {
   ticket: TicketSummary;
   selected: boolean;
   onToggleSelect: () => void;
-  open?: boolean;
+  /** The ticket open in the workspace beside the list. */
+  active?: boolean;
   onOpen?: (id: string) => void;
-  compact?: boolean;
+  /** Hover: lets the Inbox prefetch the ticket before it is opened. */
+  onIntent?: (id: string) => void;
   /** "Alex is replying…" when another agent is composing on this ticket. */
   typing?: string | null;
+  density?: ListDensity;
 }) {
   const router = useRouter();
-  const href = `/tickets/${ticket.id}`;
+  const href = ticketHref(ticket.id);
   const unread = needsReply(ticket);
-  const n = narrowClasses(compact);
+  const cell = cn(bodyCell, density === "compact" ? "py-2" : "py-3", active && "border-desk/40 bg-desk-tint");
 
   return (
     <tr
@@ -156,32 +168,47 @@ export function TicketRow({
         if (onOpen) onOpen(ticket.id);
         else router.push(href);
       }}
-      aria-selected={open || undefined}
+      onPointerEnter={() => onIntent?.(ticket.id)}
+      aria-current={active || undefined}
+      data-ticket-id={ticket.id}
       className={cn(
         "group cursor-pointer transition-colors",
-        open ? "bg-desk-tint [&>td:first-child]:shadow-[inset_3px_0_0_var(--desk)]" : selected ? "bg-desk-surface" : "hover:bg-desk-surface",
+        // The open ticket reads as one outlined, tinted row.
+        active
+          ? "[&>td]:border-t [&>td:first-child]:rounded-l-lg [&>td:first-child]:border-l [&>td:last-child]:rounded-r-lg [&>td:last-child]:border-r"
+          : selected
+            ? "bg-desk-surface"
+            : "hover:bg-desk-surface",
       )}
     >
-      <td className={cn(bodyCell, "w-10 pr-0 pl-5")}>
+      <td className={cn(cell, "w-10 pr-0 pl-5")}>
         <Checkbox checked={selected} onCheckedChange={onToggleSelect} aria-label={`Select ticket #${ticket.ticketNumber}`} className="border-ink-faint bg-card" />
       </td>
-      <td className={cn(bodyCell, "w-[92px] pr-0")}>
+      <td className={cn(cell, LIST_COLS.number, "w-[92px] pr-0")}>
         <span className="flex items-center gap-2.5">
           <PriorityDot priority={ticket.priority} />
-          <TicketIdLink ticket={ticket} className={cn("text-[13px] group-hover:text-desk", open ? "text-desk" : "text-ink-muted")} />
+          <TicketIdLink ticket={ticket} className={cn("text-[13px] group-hover:text-desk", active ? "text-desk" : "text-ink-muted")} />
         </span>
       </td>
-      <td className={cn(bodyCell, "w-full max-w-0")}>
-        <p className={cn("truncate text-[13px]", unread ? "font-semibold text-ink" : "font-medium text-ink-body")}>
-          {unread && <span className="sr-only">Customer is waiting for a reply. </span>}
-          {ticket.subject}
+      <td className={cn(cell, "w-full max-w-0")}>
+        <p className={cn("flex items-center gap-2 text-[13px]", unread ? "font-semibold text-ink" : "font-medium text-ink-body")}>
+          <span className={cn("flex", LIST_COLS.numberInline)}>
+            <PriorityDot priority={ticket.priority} />
+          </span>
+          <span className="truncate">
+            {unread && <span className="sr-only">Customer is waiting for a reply. </span>}
+            {ticket.subject}
+          </span>
         </p>
         <p className="truncate text-[12px] leading-4 text-ink-muted">
-          <span className={cn("font-medium text-ink-body", n.narrowOnly)}>{ticket.contact.name} · </span>
+          <span className={LIST_COLS.numberInline}>
+            <TicketIdLink ticket={ticket} className={cn("text-[12px]", active ? "text-desk" : "text-ink-muted")} /> ·{" "}
+          </span>
+          <span className={cn("font-medium text-ink-body", LIST_COLS.customerInline)}>{ticket.contact.name} · </span>
           {ticket.preview}
         </p>
       </td>
-      <td className={cn(bodyCell, n.wideCell)}>
+      <td className={cn(cell, LIST_COLS.customer)}>
         <div className="flex min-w-0 items-center gap-2.5">
           <PersonAvatar name={ticket.contact.name} src={ticket.contact.avatar} size="md" />
           <div className="min-w-0">
@@ -190,16 +217,16 @@ export function TicketRow({
           </div>
         </div>
       </td>
-      <td className={cn(bodyCell, "text-center")}>
+      <td className={cn(cell, "text-center")}>
         <ChannelTile source={ticket.source} />
       </td>
-      <td className={bodyCell}>
+      <td className={cell}>
         <SlaCell ticket={ticket} />
       </td>
-      <td className={cn(bodyCell, "text-[12px] whitespace-nowrap text-ink-muted", compact && "hidden")}>
+      <td className={cn(cell, LIST_COLS.updated, "text-[12px] whitespace-nowrap text-ink-muted")}>
         <TimeLabel iso={ticket.updatedAt} />
       </td>
-      <td className={bodyCell}>
+      <td className={cell}>
         <div className="flex min-w-0 items-center gap-2" title={[ticket.assignee?.name ?? "Unassigned", typing].filter(Boolean).join(" · ")}>
           <span className="relative shrink-0">
             <PersonAvatar name={ticket.assignee?.name ?? null} src={ticket.assignee?.avatar} size="sm" status={ticket.assignee?.status} />
@@ -208,39 +235,62 @@ export function TicketRow({
                 size={12}
                 weight="fill"
                 aria-hidden
-                className={cn("absolute -top-1 -right-1.5 rounded-full bg-card p-px text-desk", compact ? "" : "xl:hidden")}
+                className={cn("absolute -top-1 -right-1.5 rounded-full bg-card p-px text-desk", LIST_COLS.typingBadge)}
               />
             )}
           </span>
-          <div className={cn("min-w-0", n.narrowSr)}>
+          <div className={cn("min-w-0", LIST_COLS.assigneeName)}>
             <p className={cn("max-w-[130px] truncate text-[13px]", ticket.assignee ? "text-ink-body" : "text-ink-muted")}>{ticket.assignee?.name ?? "Unassigned"}</p>
             {typing && <p className="max-w-[150px] truncate text-[11px] leading-4 font-medium text-desk">{typing}</p>}
           </div>
         </div>
       </td>
-      <td className={cn(bodyCell, "w-12 pr-3 text-right")}>
+      <td className={cn(cell, "w-12 pr-3 text-right")}>
         <TicketRowActions ticket={ticket} />
       </td>
     </tr>
   );
 }
 
-/** Phone layout: one tappable card per ticket. */
-export function TicketCard({ ticket, typing }: { ticket: TicketSummary; typing?: string | null }) {
+/**
+ * One ticket as a card: the phone list, and the queue column beside an open
+ * ticket workspace (where `active` marks the ticket being worked on).
+ */
+export function TicketCard({
+  ticket,
+  typing,
+  active,
+  onOpen,
+  onIntent,
+}: {
+  ticket: TicketSummary;
+  typing?: string | null;
+  active?: boolean;
+  onOpen?: (id: string) => void;
+  /** Hover / focus: lets the Inbox prefetch the ticket before it is opened. */
+  onIntent?: (id: string) => void;
+}) {
   const router = useRouter();
   const sla = focusClock(ticket.sla);
   const urgentSla = sla.state === "at_risk" || sla.state === "breached";
-  const open = () => router.push(`/tickets/${ticket.id}`);
+  const open = () => (onOpen ? onOpen(ticket.id) : router.push(ticketHref(ticket.id)));
   return (
     <div
       role="link"
       tabIndex={0}
       onClick={open}
+      onPointerEnter={() => onIntent?.(ticket.id)}
+      onFocus={() => onIntent?.(ticket.id)}
       onKeyDown={(e) => {
         if (e.key === "Enter") open();
       }}
+      aria-current={active || undefined}
       aria-label={`Ticket #${ticket.ticketNumber}: ${ticket.subject}`}
-      className="border-b border-line-soft px-4 py-3.5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action active:bg-desk-tint"
+      data-ticket-id={ticket.id}
+      className={cn(
+        "cursor-pointer border-b border-line-soft px-4 py-3.5 transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action active:bg-desk-tint",
+        active ? "bg-desk-tint shadow-[inset_3px_0_0_var(--desk)]" : "hover:bg-desk-surface",
+      )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

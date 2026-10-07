@@ -137,26 +137,20 @@ export function TypingIndicator({ ticketId, className }: { ticketId: string; cla
   const text = typingText(others);
   if (!text) return null;
   const note = others.every((o) => o.typing === "note");
+  // One colleague: their full name ("Alex Rivera is replying…"); several: first names.
+  const label = others.length === 1 ? text.replace(firstName(others[0].agent), others[0].agent.name) : text;
   return (
     <div
       role="status"
       className={cn(
-        "flex items-center gap-2.5 rounded-xl px-3.5 py-2 text-[13px] font-medium",
+        "flex items-center gap-2.5 rounded-lg px-3 py-2 text-body font-semibold",
         note ? "bg-[#FFFBEB] text-[#92400E]" : "bg-desk-10 text-ink",
         className,
       )}
     >
       <AvatarStack agents={others.map((o) => o.agent)} />
-      <span className="min-w-0 flex-1 truncate">{text.replace(/…$/, "")}</span>
-      <span className="flex gap-0.5" aria-hidden>
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className={cn("size-1.5 rounded-full motion-safe:animate-bounce", note ? "bg-[#D97706]" : "bg-desk")}
-            style={{ animationDelay: `${i * 150}ms` }}
-          />
-        ))}
-      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="shrink-0 text-caption font-normal text-ink-muted">Just now</span>
     </div>
   );
 }

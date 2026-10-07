@@ -12,6 +12,7 @@ import type {
 } from "@/lib/types/ticket";
 import { AGENTS, TEAMS } from "./agents";
 import { CONTACTS } from "./customers";
+import { LISTING_TICKET_SEEDS } from "./listing-tickets";
 
 /**
  * Ticket seeds use minute offsets relative to "now", so SLA clocks and
@@ -24,7 +25,7 @@ const D = 24 * H;
 
 type AttachmentSeed = [name: string, size: number, mimeType: string];
 
-interface MessageSeed {
+export interface MessageSeed {
   ago: number;
   /** "c" ticket contact · "c:<contactId>" another contact · "a:<agentId>" public reply · "n:<agentId>" internal note */
   from: string;
@@ -32,14 +33,14 @@ interface MessageSeed {
   files?: AttachmentSeed[];
 }
 
-interface EventSeed {
+export interface EventSeed {
   ago: number;
   type: ActivityType;
   description: string;
   actor: string;
 }
 
-interface TicketSeed {
+export interface TicketSeed {
   n: number;
   subject: string;
   contact: string;
@@ -842,6 +843,9 @@ const SEEDS: TicketSeed[] = [
 
 export const ticketNumber = (n: number) => `DK-2026-${String(n).padStart(5, "0")}`;
 
+/** The extra listing tickets (lib/mock-data/listing-tickets.ts) — kept out of the Overview so its figures stay as they were. */
+export const LISTING_ONLY_TICKET_IDS: ReadonlySet<string> = new Set(LISTING_TICKET_SEEDS.map((s) => ticketNumber(s.n)));
+
 const AGENT_BY_ID = new Map(AGENTS.map((a) => [a.id, a]));
 const CONTACT_BY_ID = new Map(CONTACTS.map((c) => [c.id, c]));
 const TEAM_BY_ID = new Map(TEAMS.map((t) => [t.id, t]));
@@ -858,7 +862,7 @@ const STATUS_TEXT: Record<TicketStatus, string> = {
 export function buildTickets(now: number): TicketRecord[] {
   const at = (ago: number) => new Date(now - ago * 60_000).toISOString();
 
-  return SEEDS.map((seed) => {
+  return [...SEEDS, ...LISTING_TICKET_SEEDS].map((seed) => {
     const id = ticketNumber(seed.n);
     const contact = CONTACT_BY_ID.get(seed.contact)!;
     const createdAgo = seed.thread[0].ago;

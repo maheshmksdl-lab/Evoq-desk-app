@@ -1,70 +1,99 @@
 "use client";
 
-import { useRef, useState, type ReactNode, type RefObject } from "react";
+import { useImperativeHandle, useRef, useState, type ReactNode, type Ref, type RefObject } from "react";
+import type { Icon } from "@phosphor-icons/react";
 import {
-  ArrowBendUpLeftIcon,
+  AtIcon,
+  BookOpenTextIcon,
   CaretDownIcon,
-  LightningIcon,
+  DotsThreeIcon,
   LinkSimpleIcon,
   ListBulletsIcon,
-  LockSimpleIcon,
   PaperclipIcon,
-  PaperPlaneTiltIcon,
   TextBIcon,
   TextItalicIcon,
+  TrashIcon,
   WarningIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { DetailPrimaryButton } from "@/components/shared/desk-ui";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAddMessage } from "@/hooks/use-ticket";
 import { useRecordSavedReplyUse, useSavedReplies } from "@/hooks/use-saved-replies";
 import { useAnnouncePresence } from "@/hooks/use-presence";
 import { CURRENT_AGENT_ID } from "@/lib/mock-data/agents";
+import type { KnowledgeArticle } from "@/lib/mock-data/knowledge";
 import { attachmentDraftSchema, composerSchema } from "@/lib/schemas/ticket";
 import { STATUS_META } from "@/lib/ticket-meta";
 import type { Ticket, TicketStatus } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "./attachment-list";
+import { ComposerPalette, type PaletteView } from "./composer-palette";
+import { useTicketActions } from "./ticket-actions";
 import { joinNames, useOthers } from "./ticket-presence";
 
 export type ComposerMode = "public" | "internal";
 type Draft = { name: string; size: number; mimeType: string };
 
+/** Lets the workspace put text into the draft (a suggested article, a quoted message). */
+export interface ComposerHandle {
+  insert: (text: string) => void;
+}
+
 const SEND_AND_SET: TicketStatus[] = ["pending", "resolved", "closed"];
 
+/** "/" or "@" typed at the start of a word opens the palette. */
+const atWordStart = (value: string, caret: number) => caret === 0 || /\s/.test(value[caret - 1]);
+
+/** Markdown link for an article — rendered as a link in the thread. */
+export const articleLink = (a: KnowledgeArticle) => `[${a.title}](${a.url})`;
+
 /**
- * Reply / internal note composer. Sending appends to the mock thread only —
- * no email is delivered. Ctrl/⌘ + Enter sends.
+ * Reply / internal note composer. Type "/" for ticket actions or "@" to
+ * mention a teammate. Sending appends to the mock thread only — no email is
+ * delivered. Ctrl/⌘ + Enter sends.
  */
 export function TicketComposer({
   ticket,
   mode,
   onModeChange,
   textareaRef,
+  handle,
+  onSent,
 }: {
   ticket: Ticket;
   mode: ComposerMode;
   onModeChange: (m: ComposerMode) => void;
   textareaRef: RefObject<HTMLTextAreaElement | null>;
+  handle?: Ref<ComposerHandle>;
+  onSent?: () => void;
 }) {
   const [body, setBody] = useState("");
   const [files, setFiles] = useState<Draft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const send = useAddMessage(ticket.id);
+  const actions = useTicketActions(ticket);
   const { data: savedReplies } = useSavedReplies();
   const recordUse = useRecordSavedReplyUse();
   const internal = mode === "internal";
   const firstName = ticket.contact.name.split(" ")[0];
+
+  // ── Command palette ("/" actions, "@" mentions) ──
+  const [palette, setPalette] = useState<{ view: PaletteView; trigger: "/" | "@" | null; caret: number } | null>(null);
+  const [paletteQuery, setPaletteQuery] = useState("");
+  const openPalette = (view: PaletteView, trigger: "/" | "@" | null) => {
+    setPaletteQuery("");
+    setPalette({ view, trigger, caret: textareaRef.current?.selectionStart ?? body.length });
+  };
 
   // ── Collision awareness: warn softly, never block ──
   const [focused, setFocused] = useState(false);
@@ -105,6 +134,7 @@ export function TicketComposer({
       {
         onSuccess: () => {
           reset();
+          onSent?.();
           const statusNote = setStatus ? ` · status set to ${STATUS_META[setStatus].label}` : "";
           toast.success(internal ? "Internal note added" : `Reply added for ${ticket.contact.name}${statusNote}`, {
             description: internal ? undefined : "Sample mode — no email was sent.",
@@ -113,6 +143,31 @@ export function TicketComposer({
       },
     );
   };
+
+  const focusAt = (pos: number) =>
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(pos, pos);
+    });
+
+  /** Puts text at `at` (default: the caret), then moves the caret after it. */
+  const insertAt = (text: string, at = textareaRef.current?.selectionStart ?? body.length) => {
+    if (!body.trim()) setDraftSince(new Date().toISOString());
+    setBody((b) => b.slice(0, at) + text + b.slice(at));
+    setError(null);
+    focusAt(at + text.length);
+  };
+
+  /** Adds a block (saved reply, article, quote) to the draft, with a greeting when the reply is empty. */
+  const insertBlock = (text: string) => {
+    const greeting = body.trim() || internal ? "" : `Hi ${firstName},\n\n`;
+    const next = body.trim() ? `${body.trimEnd()}\n\n${text}` : `${greeting}${text}`;
+    if (!body.trim()) setDraftSince(new Date().toISOString());
+    setBody(next);
+    setError(null);
+    focusAt(next.length);
+  };
+  useImperativeHandle(handle, () => ({ insert: insertBlock }));
 
   /** Wraps the selection (or inserts a placeholder) with lightweight markup. */
   const format = (kind: "bold" | "italic" | "list" | "link") => {
@@ -147,10 +202,7 @@ export function TicketComposer({
 
   const insertSavedReply = (id: string, text: string) => {
     recordUse.mutate(id);
-    const greeting = body.trim() ? "" : `Hi ${firstName},\n\n`;
-    setBody((b) => (b.trim() ? `${b.trimEnd()}\n\n${text}` : `${greeting}${text}`));
-    setError(null);
-    requestAnimationFrame(() => textareaRef.current?.focus());
+    insertBlock(text);
   };
 
   const addFiles = (list: FileList | null) => {
@@ -165,23 +217,35 @@ export function TicketComposer({
     setFiles((prev) => [...prev, ...next].slice(0, 10));
   };
 
+  /** Palette closed without picking anything: a typed "/" or "@" (and its search) was just text after all. */
+  const dismissPalette = () => {
+    if (palette?.trigger) insertAt(`${palette.trigger}${paletteQuery}`, palette.caret);
+    else focusAt(palette?.caret ?? body.length);
+    setPalette(null);
+  };
+  const closePalette = () => {
+    const caret = palette?.caret ?? body.length;
+    setPalette(null);
+    focusAt(caret);
+  };
+
   return (
     <section
       aria-label={internal ? "Add internal note" : "Reply to customer"}
       className={cn(
-        "overflow-hidden rounded-2xl border border-line-soft bg-card shadow-card transition-colors focus-within:border-desk",
+        "rounded-xl border border-line-soft bg-card transition-colors focus-within:border-desk",
         internal && "border-[#FCD34D] bg-[#FFFBEB] focus-within:border-[#F59E0B]",
       )}
     >
-      {/* Mode switch */}
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-3 sm:px-4" role="tablist" aria-label="Message type">
-        <div className="flex">
+      {/* Mode switch + tools */}
+      <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3">
+        <div className="flex" role="tablist" aria-label="Message type">
           {(
             [
-              ["public", "Reply", ArrowBendUpLeftIcon],
-              ["internal", "Internal note", LockSimpleIcon],
+              ["public", "Reply"],
+              ["internal", "Internal note"],
             ] as const
-          ).map(([value, label, Icon]) => {
+          ).map(([value, label]) => {
             const selected = mode === value;
             return (
               <button
@@ -190,66 +254,56 @@ export function TicketComposer({
                 role="tab"
                 aria-selected={selected}
                 onClick={() => onModeChange(value)}
+                title={value === "public" ? `To: ${ticket.contact.name} <${ticket.contact.email}>` : "Only visible to support staff"}
                 className={cn(
-                  "-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-3.5 text-body transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action",
+                  "-mb-px border-b-2 px-3 py-3 text-body transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action",
                   selected
                     ? value === "internal"
                       ? "border-[#D97706] font-semibold text-[#92400E]"
-                      : "border-desk font-semibold text-desk"
-                    : "border-transparent text-ink hover:text-desk",
+                      : "border-desk font-semibold text-ink"
+                    : "border-transparent text-ink-muted hover:text-ink",
                 )}
               >
-                <Icon size={15} weight={selected ? "bold" : "regular"} aria-hidden />
                 {label}
               </button>
             );
           })}
         </div>
-        <p className="truncate pb-1 text-caption text-ink-muted sm:pb-0">
-          {internal ? (
-            <span className="font-semibold text-[#92400E]">Only visible to support staff</span>
-          ) : (
-            <>
-              To: <span className="text-ink">{ticket.contact.name}</span>{" "}
-              <span className="hidden sm:inline">&lt;{ticket.contact.email}&gt;</span>
-            </>
-          )}
-        </p>
-      </div>
-
-      {/* Toolbar */}
-      <div className="flex flex-wrap items-center gap-0.5 px-3 pt-2 sm:px-4">
-        <ToolButton label="Bold" icon={TextBIcon} onClick={() => format("bold")} />
-        <ToolButton label="Italic" icon={TextItalicIcon} onClick={() => format("italic")} />
-        <ToolButton label="Bulleted list" icon={ListBulletsIcon} onClick={() => format("list")} />
-        <ToolButton label="Link" icon={LinkSimpleIcon} onClick={() => format("link")} />
-        <span className="mx-1 h-4 w-px bg-line" aria-hidden />
-        <ToolButton label="Attach files" icon={PaperclipIcon} onClick={() => fileInput.current?.click()} />
-        <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-        {!internal && (
+        <div className="flex items-center gap-0.5">
+          <ToolButton label="Attach files" icon={PaperclipIcon} onClick={() => fileInput.current?.click()} />
+          <ToolButton label="Insert link" icon={LinkSimpleIcon} onClick={() => format("link")} />
+          <ToolButton label="Link knowledge article" icon={BookOpenTextIcon} onClick={() => openPalette("article", null)} />
+          <ToolButton label="Mention a teammate" icon={AtIcon} onClick={() => openPalette("mention", null)} />
+          <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" variant="ghost" size="sm" className="gap-1 rounded-lg text-ink-muted hover:bg-desk-tint hover:text-desk">
-                <LightningIcon size={15} aria-hidden />
-                Saved replies
-                <CaretDownIcon size={11} aria-hidden />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-72">
-              <DropdownMenuLabel className="text-nav-group-label text-ink-muted uppercase">Insert a saved reply</DropdownMenuLabel>
-              {!savedReplies && <DropdownMenuItem disabled>Loading saved replies…</DropdownMenuItem>}
-              {savedReplies?.map((r) => (
-                <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.id, r.body)} className="flex-col items-start gap-0.5">
-                  <span className="flex w-full items-center gap-2">
-                    <span className="flex-1 font-medium">{r.name}</span>
-                    <code className="text-[11px] text-ink-muted">{r.shortcut}</code>
-                  </span>
-                  <span className="line-clamp-1 text-caption text-ink-muted">{r.body}</span>
-                </DropdownMenuItem>
-              ))}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger aria-label="More formatting" className={toolClass}>
+                  <DotsThreeIcon size={18} weight="bold" aria-hidden />
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>More</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem onSelect={() => format("bold")}>
+                <TextBIcon size={15} aria-hidden /> Bold
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => format("italic")}>
+                <TextItalicIcon size={15} aria-hidden /> Italic
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => format("list")}>
+                <ListBulletsIcon size={15} aria-hidden /> Bulleted list
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => openPalette("root", null)}>
+                <span className="w-[15px] text-center font-mono text-[13px]" aria-hidden>/</span> All actions
+              </DropdownMenuItem>
+              <DropdownMenuItem variant="destructive" disabled={!body && !files.length} onSelect={reset}>
+                <TrashIcon size={15} aria-hidden /> Discard draft
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        )}
+        </div>
       </div>
 
       {showReplyingWarning && (
@@ -300,68 +354,115 @@ export function TicketComposer({
         />
       )}
 
-      <label htmlFor="composer-body" className="sr-only">
-        {internal ? "Internal note" : `Reply to ${ticket.contact.name}`}
-      </label>
-      <textarea
-        id="composer-body"
-        ref={textareaRef}
-        value={body}
-        onChange={(e) => {
-          if (!body.trim() && e.target.value.trim()) setDraftSince(new Date().toISOString());
-          setBody(e.target.value);
-          if (error) setError(null);
-        }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setFocused(false)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        rows={5}
-        placeholder={internal ? "Share context with your team — customers never see notes." : `Write your reply to ${firstName}…`}
-        aria-invalid={!!error}
-        aria-describedby={error ? "composer-error" : undefined}
-        className="block max-h-[50vh] min-h-[120px] w-full resize-y bg-transparent px-4 py-3 text-body leading-relaxed text-ink placeholder:text-ink-faint sm:px-5 focus:outline-none"
-      />
-
-      <AttachmentList attachments={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} className="px-4 pb-3 sm:px-5" />
-
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5">
-        <p className="min-h-5 text-caption" aria-live="polite">
-          {error ? (
-            <span id="composer-error" className="font-medium text-destructive">
-              {error}
-            </span>
-          ) : (
-            <span className="hidden text-ink-muted sm:inline">Ctrl + Enter to {internal ? "add note" : "send"}</span>
+      <Popover open={!!palette} onOpenChange={(o) => !o && dismissPalette()}>
+        <PopoverAnchor asChild>
+          <div className="mx-3 mt-3 rounded-lg border border-line bg-card focus-within:border-desk">
+            <label htmlFor="composer-body" className="sr-only">
+              {internal ? "Internal note" : `Reply to ${ticket.contact.name}`}
+            </label>
+            <textarea
+              id="composer-body"
+              ref={textareaRef}
+              value={body}
+              onChange={(e) => {
+                if (!body.trim() && e.target.value.trim()) setDraftSince(new Date().toISOString());
+                setBody(e.target.value);
+                if (error) setError(null);
+              }}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  submit();
+                } else if ((e.key === "/" || e.key === "@") && !e.ctrlKey && !e.metaKey && atWordStart(body, e.currentTarget.selectionStart)) {
+                  e.preventDefault();
+                  openPalette(e.key === "/" ? "root" : "mention", e.key);
+                }
+              }}
+              rows={3}
+              placeholder={internal ? "Type / for actions, @ to mention, or write an internal note…" : "Type / for actions, @ to mention, or write a reply…"}
+              aria-invalid={!!error}
+              aria-describedby={error ? "composer-error" : undefined}
+              aria-haspopup="listbox"
+              className="block max-h-[40vh] min-h-[76px] w-full resize-y rounded-lg bg-transparent px-3 py-2.5 text-body leading-relaxed text-ink placeholder:text-ink-faint focus:outline-none"
+            />
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          align="end"
+          side="bottom"
+          sideOffset={-28}
+          collisionPadding={12}
+          className="w-[300px] gap-0 overflow-hidden rounded-xl p-0"
+          onCloseAutoFocus={(e) => e.preventDefault()}
+        >
+          {palette && (
+            <ComposerPalette
+              ticket={ticket}
+              view={palette.view}
+              onViewChange={(view) => setPalette((p) => (p ? { ...p, view } : p))}
+              query={paletteQuery}
+              onQueryChange={setPaletteQuery}
+              onDone={closePalette}
+              handlers={{
+                assign: actions.assign,
+                setStatus: actions.setStatus,
+                toggleTag: actions.toggleTag,
+                insertSavedReply,
+                insertArticle: (a) => insertBlock(articleLink(a)),
+                escalate: () => actions.update({ priority: "urgent", addTag: "escalated" }, `#${ticket.ticketNumber} escalated — priority set to Urgent`),
+                closeTicket: () => actions.setStatus("closed"),
+                mention: (agent) => insertAt(`@${agent.name} `, palette.caret),
+              }}
+            />
           )}
+        </PopoverContent>
+      </Popover>
+
+      <AttachmentList attachments={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} className="px-3 pt-3" />
+
+      {error && (
+        <p id="composer-error" role="alert" className="px-4 pt-2 text-caption font-medium text-destructive">
+          {error}
         </p>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={reset}
-            disabled={(!body && !files.length) || send.isPending}
-            className="h-10 rounded-[9px] px-4 text-button font-semibold text-ink-muted transition-colors hover:bg-desk-tint hover:text-ink disabled:opacity-50"
-          >
-            Cancel
-          </button>
+      )}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-3.5 text-button text-ink transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action data-[state=open]:border-desk">
+            Saved replies
+            <CaretDownIcon size={13} aria-hidden className="text-ink-muted" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-72">
+            <DropdownMenuLabel className="text-nav-group-label text-ink-muted uppercase">Insert a saved reply</DropdownMenuLabel>
+            {!savedReplies && <DropdownMenuItem disabled>Loading saved replies…</DropdownMenuItem>}
+            {savedReplies?.map((r) => (
+              <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.id, r.body)} className="flex-col items-start gap-0.5">
+                <span className="flex w-full items-center gap-2">
+                  <span className="flex-1 font-medium">{r.name}</span>
+                  <code className="text-[11px] text-ink-muted">{r.shortcut}</code>
+                </span>
+                <span className="line-clamp-1 text-caption text-ink-muted">{r.body}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="flex items-center gap-3">
+          <span className="hidden text-caption text-ink-muted xl:inline">Ctrl + Enter to {internal ? "add note" : "send"}</span>
           {internal ? (
-            <DetailPrimaryButton icon={LockSimpleIcon} onClick={() => submit()} disabled={send.isPending} className="bg-[#B45309] hover:bg-[#92400E]">
+            <button type="button" onClick={() => submit()} disabled={send.isPending} className={cn(sendClass, "rounded-lg bg-[#B45309] hover:bg-[#92400E]")}>
               {send.isPending ? "Adding…" : "Add note"}
-            </DetailPrimaryButton>
+            </button>
           ) : (
             <div className="flex">
-              <DetailPrimaryButton icon={PaperPlaneTiltIcon} onClick={() => submit()} disabled={send.isPending} className="rounded-r-none">
+              <button type="button" onClick={() => submit()} disabled={send.isPending} className={cn(sendClass, "rounded-l-lg")}>
                 {send.isPending ? "Sending…" : "Send"}
-              </DetailPrimaryButton>
+              </button>
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <DetailPrimaryButton disabled={send.isPending} aria-label="More send options" className="rounded-l-none border-l border-l-white/30 px-2.5">
-                    <CaretDownIcon size={13} weight="bold" aria-hidden />
-                  </DetailPrimaryButton>
+                <DropdownMenuTrigger disabled={send.isPending} aria-label="More send options" className={cn(sendClass, "rounded-r-lg border-l border-l-white/30 px-2.5")}>
+                  <CaretDownIcon size={13} weight="bold" aria-hidden />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   {SEND_AND_SET.filter((s) => s !== ticket.status).map((s) => (
@@ -379,13 +480,19 @@ export function TicketComposer({
   );
 }
 
+const sendClass =
+  "inline-flex h-10 items-center justify-center bg-desk px-5 text-button font-semibold text-white transition-colors hover:bg-desk-press focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action disabled:opacity-60";
+
+const toolClass =
+  "inline-flex size-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-desk-tint hover:text-desk focus-visible:outline-2 focus-visible:outline-desk-action data-[state=open]:bg-desk-tint";
+
 /** Inline collision message inside the composer — awareness, not a lock. */
 function CollisionNotice({ text, actions, tone = "warn" }: { text: string; actions: ReactNode; tone?: "warn" | "info" }) {
   return (
     <div
       role="status"
       className={cn(
-        "mx-3 mt-3 flex flex-col gap-2 rounded-xl px-3.5 py-2.5 text-[13px] sm:mx-4 sm:flex-row sm:items-center",
+        "mx-3 mt-3 flex flex-col gap-2 rounded-xl px-3.5 py-2.5 text-[13px] sm:flex-row sm:items-center",
         tone === "warn" ? "bg-[#FFF7ED] text-[#9A3412]" : "bg-desk-10 text-ink",
       )}
     >
@@ -414,13 +521,13 @@ function NoticeButton({ children, onClick, primary }: { children: ReactNode; onC
   );
 }
 
-function ToolButton({ label, icon: Icon, onClick }: { label: string; icon: typeof TextBIcon; onClick: () => void }) {
+function ToolButton({ label, icon: IconCmp, onClick }: { label: string; icon: Icon; onClick: () => void }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" onClick={onClick} aria-label={label} className="rounded-lg text-ink-muted hover:bg-desk-tint hover:text-desk">
-          <Icon size={16} aria-hidden />
-        </Button>
+        <button type="button" onClick={onClick} aria-label={label} className={toolClass}>
+          <IconCmp size={17} aria-hidden />
+        </button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>

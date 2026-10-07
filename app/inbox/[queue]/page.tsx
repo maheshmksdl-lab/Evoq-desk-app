@@ -17,13 +17,12 @@ export async function generateMetadata({ params }: PageProps<"/inbox/[queue]">):
   return { title: VIEW_META[INBOX_QUEUES[queue as InboxSlug]].label };
 }
 
-/** One inbox queue — the shared ticket workspace with its view fixed by the route. */
-export default async function InboxQueuePage({ params }: PageProps<"/inbox/[queue]">) {
-  const { queue } = await params;
+/** One inbox queue. The Inbox reads its queue from the path and its filters from the query. */
+export default function InboxQueuePage() {
   return (
-    // The list reads filters from the URL, so it renders on the client inside Suspense.
+    // The list reads its state from the URL, so it renders on the client inside Suspense.
     <Suspense fallback={<TicketListFallback />}>
-      <TicketList view={INBOX_QUEUES[queue as InboxSlug]} />
+      <TicketList />
     </Suspense>
   );
 }

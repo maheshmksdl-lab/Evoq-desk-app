@@ -64,3 +64,21 @@ export function ticketListHref(query: Partial<TicketQuery>): string {
 export function ticketViewHref(view: TicketView): string {
   return ticketListHref({ view });
 }
+
+/**
+ * A ticket's address: /tickets/<id>, plus the list query it was opened from
+ * (view, filters…) so a refresh or shared link restores the same queue beside it.
+ * There is no ticket page — the Inbox renders this URL with the ticket open.
+ */
+export function ticketHref(id: string, query: Partial<TicketQuery> = {}): string {
+  const qs = ticketQueryToParams({ ...query, open: undefined }).toString();
+  return `/tickets/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`;
+}
+
+/** What the path says about the Inbox: the queue (/inbox/<slug>) or the open ticket (/tickets/<id>). */
+export function parseTicketPath(pathname: string): { view?: TicketView; ticketId?: string } {
+  const [, root, segment] = pathname.split("/");
+  if (root === "inbox" && segment && isInboxSlug(segment)) return { view: INBOX_QUEUES[segment] };
+  if (root === "tickets" && segment) return { ticketId: decodeURIComponent(segment).toUpperCase() };
+  return {};
+}

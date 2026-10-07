@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { usePresenceIndex } from "@/hooks/use-presence";
 import { useLookups } from "@/hooks/use-tickets";
 import { resolvePresence, typingText } from "./ticket-presence";
-import { narrowClasses, TicketCard, TicketRow } from "./ticket-row";
+import { LIST_COLS, TicketCard, TicketRow, type ListDensity } from "./ticket-row";
 
 const headCell = "px-3 py-2.5 text-left text-[12px] leading-4 font-medium text-ink-muted whitespace-nowrap border-b border-line bg-card";
 
@@ -40,6 +40,8 @@ export function TicketTable({
   onSelectionChange,
   openId,
   onOpen,
+  onIntent,
+  density = "comfortable",
 }: {
   tickets: TicketSummary[];
   sort: TicketSort;
@@ -47,16 +49,17 @@ export function TicketTable({
   dimmed?: boolean;
   selected: ReadonlySet<string>;
   onSelectionChange: (ids: Set<string>) => void;
-  /** Ticket shown in the side panel; the table compacts while one is open. */
+  /** The ticket open in the workspace beside the list. */
   openId?: string;
-  onOpen?: (id: string) => void;
+  /** Opens a ticket in the Inbox workspace. */
+  onOpen: (id: string) => void;
+  onIntent?: (id: string) => void;
+  density?: ListDensity;
 }) {
-  const compact = !!openId;
   // One subscription for the whole table: "Alex is replying…" hints per row.
   const presence = usePresenceIndex();
   const { data: lookups } = useLookups();
   const typingOn = (id: string) => typingText(resolvePresence(presence[id] ?? [], lookups?.agents));
-  const n = narrowClasses(compact);
   const picked = tickets.filter((t) => selected.has(t.id)).length;
   const toggle = (id: string) => {
     const next = new Set(selected);
@@ -65,16 +68,17 @@ export function TicketTable({
   };
 
   return (
-    <div className={cn("border-t border-line transition-opacity", dimmed && "opacity-60")} aria-busy={dimmed}>
-      <div className="md:hidden" role="list" aria-label="Tickets">
+    // Sized by its own width, not the viewport: cards when narrow (phones, or a tablet beside an open ticket), a table otherwise.
+    <div className={cn("@container border-t border-line transition-opacity", dimmed && "opacity-60")} aria-busy={dimmed}>
+      <div className="@xl:hidden" role="list" aria-label="Tickets">
         {tickets.map((t) => (
           <div role="listitem" key={t.id}>
-            <TicketCard ticket={t} typing={typingOn(t.id)} />
+            <TicketCard ticket={t} typing={typingOn(t.id)} active={t.id === openId} onOpen={onOpen} onIntent={onIntent} />
           </div>
         ))}
       </div>
-      <div className="relative hidden overflow-x-auto md:block">
-        <table className={cn("w-full min-w-[720px] border-separate border-spacing-0", !compact && "xl:min-w-[960px]")}>
+      <div className="relative hidden overflow-x-auto px-1 @xl:block">
+        <table className="w-full border-separate border-spacing-0">
           <caption className="sr-only">Tickets</caption>
           <thead>
             <tr>
@@ -86,15 +90,17 @@ export function TicketTable({
                   className="border-ink-faint bg-card"
                 />
               </th>
-              <SortHeader label="Ticket" spec={{ desc: "created_desc", asc: "created_asc" }} sort={sort} onSort={onSort} colSpan={2} />
-              <th scope="col" className={cn(headCell, n.wideCell)}>
+              {/* Wide list: "Ticket" heads the # column. Narrow list: the # moves into the subject cell, so it heads that. */}
+              <SortHeader label="Ticket" spec={{ desc: "created_desc", asc: "created_asc" }} sort={sort} onSort={onSort} className={LIST_COLS.number} />
+              <SortHeader label="Ticket" spec={{ desc: "created_desc", asc: "created_asc" }} sort={sort} onSort={onSort} className="@4xl:[&>button]:invisible" />
+              <th scope="col" className={cn(headCell, LIST_COLS.customer)}>
                 Customer
               </th>
               <th scope="col" className={cn(headCell, "text-center")}>
                 Channel
               </th>
               <SortHeader label="SLA" spec={{ desc: "sla_asc" }} sort={sort} onSort={onSort} />
-              <SortHeader label="Updated" spec={{ desc: "updated_desc", asc: "updated_asc" }} sort={sort} onSort={onSort} className={compact ? "hidden" : undefined} />
+              <SortHeader label="Updated" spec={{ desc: "updated_desc", asc: "updated_asc" }} sort={sort} onSort={onSort} className={LIST_COLS.updated} />
               <th scope="col" className={headCell}>
                 Assignee
               </th>
@@ -110,10 +116,11 @@ export function TicketTable({
                 ticket={t}
                 selected={selected.has(t.id)}
                 onToggleSelect={() => toggle(t.id)}
-                open={t.id === openId}
+                active={t.id === openId}
                 onOpen={onOpen}
-                compact={compact}
+                onIntent={onIntent}
                 typing={typingOn(t.id)}
+                density={density}
               />
             ))}
           </tbody>

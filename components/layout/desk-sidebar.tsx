@@ -1,7 +1,8 @@
 "use client";
 
+import { Suspense, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { LightningIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -82,18 +83,33 @@ function QueueRow({ queue, active, count, onNavigate }: { queue: InboxQueue; act
   );
 }
 
+/** The open ticket's queue (/tickets/<id>?view=mine) — read in its own Suspense boundary. */
+function TicketViewParam({ onView }: { onView: (view: string | null) => ReactNode }) {
+  return onView(useSearchParams().get("view"));
+}
+
 /** Overview · Inbox (with its queues) · then the modules. */
-function Nav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+function Nav(props: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
+  // A ticket URL keeps its queue in ?view, so the queue it was opened from stays highlighted.
+  if (!pathname.startsWith("/tickets/")) return <NavItems {...props} pathname={pathname} />;
+  return (
+    <Suspense fallback={<NavItems {...props} pathname={pathname} />}>
+      <TicketViewParam onView={(view) => <NavItems {...props} pathname={pathname} ticketView={view} />} />
+    </Suspense>
+  );
+}
+
+function NavItems({ collapsed, onNavigate, pathname, ticketView }: { collapsed: boolean; onNavigate?: () => void; pathname: string; ticketView?: string | null }) {
   const { data: counts } = useViewCounts();
-  const activeQueue = INBOX_QUEUES.find((q) => pathname === queueHref(q));
+  const activeQueue = INBOX_QUEUES.find((q) => pathname === queueHref(q) || q.view === ticketView);
   const under = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
 
   return (
     <>
       <div className="space-y-0.5">
         <NavRow item={OVERVIEW} active={under(OVERVIEW.href)} collapsed={collapsed} onNavigate={onNavigate} />
-        <NavRow item={INBOX} active={under("/inbox")} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavRow item={INBOX} active={under("/inbox") || !!activeQueue} collapsed={collapsed} onNavigate={onNavigate} />
         {!collapsed && (
           <ul className="space-y-0.5 pt-0.5" aria-label="Inbox queues">
             {INBOX_QUEUES.map((q) => (
@@ -104,7 +120,7 @@ function Nav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () =>
       </div>
       <div className={cn("space-y-0.5", collapsed ? "mt-3 border-t border-line pt-3" : "mt-6")}>
         {MAIN_ITEMS.map((item) => (
-          <NavRow key={item.href} item={item} active={item.available && under(item.href)} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavRow key={item.href} item={item} active={item.available && under(item.href) && !activeQueue} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </div>
     </>
