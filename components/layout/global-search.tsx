@@ -1,21 +1,22 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import { useDeferredValue, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
-import { BuildingsIcon, CommandIcon, MagnifyingGlassIcon, TicketIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
+import { BuildingsIcon, MagnifyingGlassIcon, TicketIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useDeskSearch } from "@/hooks/use-tickets";
+import { useRegisterAction } from "./actions-context";
 import { pluralize } from "@/lib/format";
 import { STATUS_META } from "@/lib/ticket-meta";
 
-const groupHeading =
+export const groupHeading =
   "[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:pt-2 [&_[cmdk-group-heading]]:pb-1 [&_[cmdk-group-heading]]:text-nav-group-label [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:text-ink-muted";
-const itemClass =
+export const itemClass =
   "flex w-full cursor-pointer items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors data-[selected=true]:bg-desk-tint";
 
 /** Grouped results for tickets (ID, subject, email) and customers. */
-function SearchResults({ q, onPick }: { q: string; onPick: (href: string) => void }) {
+export function SearchResults({ q, onPick }: { q: string; onPick: (href: string) => void }) {
   const term = useDeferredValue(q).trim();
   const { data, isFetching } = useDeskSearch(term.length >= 2 ? term : "");
 
@@ -66,25 +67,18 @@ function SearchResults({ q, onPick }: { q: string; onPick: (href: string) => voi
   );
 }
 
-/** Header search (desktop) — inline field with a results dropdown. Ctrl/⌘ K or "/" focuses it. */
+/** Header search (desktop) — inline field with a results dropdown. "/" focuses it (Ctrl/⌘ K opens Quick actions). */
 export function HeaderSearch() {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const typing = (e.target as HTMLElement | null)?.closest("input, textarea, select, [contenteditable=true]");
-      if ((e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) || (e.key === "/" && !typing)) {
-        if (!inputRef.current?.offsetParent) return; // hidden on small screens — MobileSearch handles it
-        e.preventDefault();
-        inputRef.current.focus();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  // "/" — hidden on small screens, where MobileSearch takes the action instead.
+  useRegisterAction("search", () => {
+    if (!inputRef.current?.offsetParent) return false;
+    inputRef.current.focus();
+  });
 
   const pick = (href: string) => {
     setQ("");
@@ -116,9 +110,9 @@ export function HeaderSearch() {
           placeholder="Search tickets, customers, emails"
           className="h-6 min-w-0 flex-1 bg-transparent text-[13px] text-ink placeholder:text-ink-muted focus:outline-none"
         />
-        <span className="inline-flex items-center gap-0.5 text-[10px] text-ink-faint" aria-hidden>
-          <CommandIcon size={11} weight="duotone" />K
-        </span>
+        <kbd className="rounded border border-line px-1 font-sans text-[10px] leading-4 text-ink-faint" aria-hidden>
+          /
+        </kbd>
       </div>
       {open && (
         <Command.List className="absolute top-full right-0 z-50 mt-1.5 max-h-[420px] w-[380px] overflow-y-auto rounded-xl border border-line bg-card shadow-pop">
@@ -135,17 +129,10 @@ export function MobileSearch() {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (window.matchMedia("(min-width: 1024px)").matches) return;
-      if (e.key.toLowerCase() === "k" && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        setOpen(true);
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  useRegisterAction("search", () => {
+    if (window.matchMedia("(min-width: 1024px)").matches) return false;
+    setOpen(true);
+  });
 
   return (
     <>

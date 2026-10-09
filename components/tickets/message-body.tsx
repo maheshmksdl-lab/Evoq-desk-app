@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import Link from "next/link";
+import { TicketLink } from "./ticket-link";
 
 /**
  * Renders the composer's lightweight formatting — **bold**, _italic_,
@@ -27,9 +27,9 @@ function renderInline(text: string, keyPrefix: string): ReactNode[] {
     }
     if (/^#DK-\d{4}-\d{5}$/.test(part)) {
       return (
-        <Link key={key} href={`/tickets/${part.slice(1)}`} className="font-medium text-desk hover:underline">
+        <TicketLink key={key} ticketId={part.slice(1)} className="font-medium text-desk hover:underline">
           {part}
-        </Link>
+        </TicketLink>
       );
     }
     return <Fragment key={key}>{part}</Fragment>;

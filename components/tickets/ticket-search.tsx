@@ -5,7 +5,20 @@ import { SearchBox } from "@/components/shared/desk-ui";
 import { cn } from "@/lib/utils";
 
 /** Debounced list search. Keeps in step with the URL when it changes elsewhere (e.g. header search). */
-export function TicketSearch({ value, onChange, className }: { value: string; onChange: (q: string) => void; className?: string }) {
+export function TicketSearch({
+  value,
+  onChange,
+  className,
+  autoFocus,
+  onBlurEmpty,
+}: {
+  value: string;
+  onChange: (q: string) => void;
+  className?: string;
+  autoFocus?: boolean;
+  /** Focus left an empty box (lets a toggled-open search collapse again). */
+  onBlurEmpty?: () => void;
+}) {
   const [text, setText] = useState(value);
   const [focused, setFocused] = useState(false);
   const [prevValue, setPrevValue] = useState(value);
@@ -27,7 +40,11 @@ export function TicketSearch({ value, onChange, className }: { value: string; on
       value={text}
       onChange={setText}
       onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
+      autoFocus={autoFocus}
+      onBlur={() => {
+        setFocused(false);
+        if (!text.trim()) onBlurEmpty?.();
+      }}
       onKeyDown={(e) => {
         if (e.key === "Escape" && text) {
           e.stopPropagation();

@@ -2,12 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 
-/** Sidebar state shared by the header (toggle) and the sidebar / content offset. */
+/** Sidebar state shared by the header (toggle) and the sidebar / content offset, plus the Quick actions palette. */
 interface ShellState {
   collapsed: boolean;
   toggleCollapsed: () => void;
   drawerOpen: boolean;
   setDrawerOpen: (open: boolean) => void;
+  paletteOpen: boolean;
+  setPaletteOpen: (open: boolean) => void;
 }
 
 const ShellContext = createContext<ShellState | null>(null);
@@ -40,8 +42,12 @@ export function ShellProvider({ children }: { children: ReactNode }) {
     () => false,
   );
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const toggleCollapsed = useCallback(() => writeCollapsed(!readCollapsed()), []);
-  const value = useMemo(() => ({ collapsed, toggleCollapsed, drawerOpen, setDrawerOpen }), [collapsed, toggleCollapsed, drawerOpen]);
+  const value = useMemo(
+    () => ({ collapsed, toggleCollapsed, drawerOpen, setDrawerOpen, paletteOpen, setPaletteOpen }),
+    [collapsed, toggleCollapsed, drawerOpen, paletteOpen],
+  );
   return <ShellContext.Provider value={value}>{children}</ShellContext.Provider>;
 }
 

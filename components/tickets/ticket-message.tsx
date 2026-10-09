@@ -1,4 +1,8 @@
-import { GitMergeIcon, LockSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+"use client";
+
+import { ArrowBendUpLeftIcon, CopyIcon, DotsThreeIcon, GitMergeIcon, LockSimpleIcon } from "@phosphor-icons/react/dist/ssr";
+import { toast } from "sonner";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { PersonAvatar } from "@/components/shared/person-avatar";
 import { TimeLabel } from "@/components/shared/time-label";
 import { SOURCE_LABEL } from "@/lib/ticket-meta";
@@ -6,17 +10,31 @@ import type { TicketMessage as Message } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
 import { AttachmentList } from "./attachment-list";
 import { MessageBody } from "./message-body";
-import { SOURCE_ICON } from "./ticket-source-badge";
+
+/** The team inbox customers write to. */
+export const SUPPORT_ADDRESS = "support@desk.example";
 
 /**
  * One entry in the thread. Customer messages, public agent replies and
- * internal notes each get a distinct, non-colour-only treatment:
- * agent replies carry a teal rule, notes a lock label on an amber surface.
+ * internal notes each get a distinct, non-colour-only treatment: replies are
+ * labelled "Reply", notes sit on an amber band labelled "Internal note".
  */
-export function TicketMessage({ message, isFirst }: { message: Message; isFirst?: boolean }) {
+export function TicketMessage({
+  message,
+  isFirst,
+  contactEmail,
+  onQuote,
+}: {
+  message: Message;
+  isFirst?: boolean;
+  /** Where public agent replies go. */
+  contactEmail: string;
+  /** Quote this message into the composer. */
+  onQuote?: (text: string) => void;
+}) {
   if (message.authorType === "system") {
     return (
-      <li className="flex items-center gap-2 py-1 text-caption text-ink-muted">
+      <li className="flex items-center gap-2 px-5 py-3 text-caption text-ink-muted">
         <span className="h-px flex-1 bg-line" aria-hidden />
         <GitMergeIcon size={14} aria-hidden />
         <span className="max-w-[70%] text-center">{message.body}</span>
@@ -30,49 +48,67 @@ export function TicketMessage({ message, isFirst }: { message: Message; isFirst?
 
   const internal = message.visibility === "internal";
   const agent = message.authorType === "agent";
-  const ChannelIcon = SOURCE_ICON[message.channel];
+  const kind = internal ? "Internal note" : agent ? "Reply" : "Message";
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message.body);
+      toast.success("Message copied");
+    } catch {
+      toast.error("Couldn't copy the message");
+    }
+  };
 
   return (
     <li
-      className={cn(
-        "overflow-hidden rounded-xl border",
-        internal ? "border-[#FCD34D]/70 bg-[#FFFBEB]" : "border-line-soft bg-white",
-        !internal && agent && "border-l-[3px] border-l-desk",
-      )}
-      aria-label={`${internal ? "Internal note" : agent ? "Reply" : "Message"} from ${message.author.name}`}
+      tabIndex={-1}
+      className={cn("group/msg flex gap-3 border-b border-line-soft px-5 py-4 outline-none", internal && "bg-[#FFFBEB]")}
+      aria-label={`${kind} from ${message.author.name}`}
     >
-      {internal && (
-        <div className="flex items-center gap-1.5 border-b border-[#FCD34D]/60 bg-[#FEF3C7]/70 px-4 py-1.5 text-caption font-semibold text-[#92400E]">
-          <LockSimpleIcon size={12} weight="bold" aria-hidden />
-          Internal note
-          <span className="font-normal text-[#92400E]/80">· Only visible to support staff</span>
-        </div>
-      )}
-      <div className="flex items-start gap-3 px-4 pt-3.5">
-        <PersonAvatar name={message.author.name} src={message.author.avatar} size="lg" />
-        <div className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-x-3 gap-y-0.5">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-x-2 text-label font-bold text-ink">
-              {message.author.name}
-              {isFirst && <span className="text-caption font-normal text-ink-muted">Original request</span>}
-            </p>
-            <p className="text-caption text-ink-muted">{message.author.role}</p>
-          </div>
-          <p className="flex items-center gap-1.5 text-caption text-ink-muted">
-            {!internal && (
-              <span className="inline-flex items-center gap-1" title={`Via ${SOURCE_LABEL[message.channel]}`}>
-                <ChannelIcon size={13} aria-hidden />
-                <span className="hidden sm:inline">{SOURCE_LABEL[message.channel]}</span>
-                <span className="sr-only sm:hidden">via {SOURCE_LABEL[message.channel]}</span>
-                <span aria-hidden>·</span>
+      <PersonAvatar name={message.author.name} src={message.author.avatar} size="lg" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-start gap-2">
+          <p className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2">
+            <span className="text-label font-semibold text-ink">{message.author.name}</span>
+            <TimeLabel iso={message.timestamp} className="text-caption text-ink-muted" />
+            {internal ? (
+              <span className="inline-flex items-center gap-1 text-caption font-medium text-[#B45309]">
+                <LockSimpleIcon size={11} weight="bold" aria-hidden /> Internal note
               </span>
+            ) : agent ? (
+              <span className="text-caption font-medium text-desk">Reply</span>
+            ) : (
+              isFirst && <span className="text-caption text-ink-muted">Original request</span>
             )}
-            <TimeLabel iso={message.timestamp} mode="timestamp" />
           </p>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label={`Actions for ${kind.toLowerCase()} from ${message.author.name}`}
+              className="-mt-1 inline-flex size-7 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-desk-depth-10 hover:text-ink focus-visible:outline-2 focus-visible:outline-desk-action data-[state=open]:bg-desk-depth-10"
+            >
+              <DotsThreeIcon size={18} weight="bold" aria-hidden />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {onQuote && (
+                <DropdownMenuItem onSelect={() => onQuote(message.body.split("\n").map((l) => `> ${l}`).join("\n"))}>
+                  <ArrowBendUpLeftIcon size={15} aria-hidden /> Quote in reply
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={copy}>
+                <CopyIcon size={15} aria-hidden /> Copy text
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
-      <div className="px-4 pt-2.5 pb-4 sm:pl-[68px]">
-        <MessageBody body={message.body} />
+        {!internal && (
+          <p className="text-caption text-ink-muted">
+            To: {agent ? contactEmail : SUPPORT_ADDRESS}
+            <span className="sr-only"> via {SOURCE_LABEL[message.channel]}</span>
+          </p>
+        )}
+        <div className="mt-1.5">
+          <MessageBody body={message.body} />
+        </div>
         <AttachmentList attachments={message.attachments} className="mt-3" />
       </div>
     </li>

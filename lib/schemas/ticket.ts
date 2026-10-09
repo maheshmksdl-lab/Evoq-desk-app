@@ -14,6 +14,7 @@ export const TICKET_VIEWS = [
   "all",
   "mine",
   "unassigned",
+  "team",
   "open",
   "pending",
   "on_hold",
@@ -22,6 +23,7 @@ export const TICKET_VIEWS = [
   "high_priority",
   "sla_at_risk",
   "overdue",
+  "recent",
 ] as const;
 export type TicketView = (typeof TICKET_VIEWS)[number];
 
@@ -66,6 +68,10 @@ export const ticketFiltersSchema = z.object({
   assignee: idList,
   team: idList,
   customer: idList,
+  /** Tag names; a ticket matches when it carries any of them. */
+  tags: idList,
+  /** Spam is hidden everywhere unless asked for explicitly. */
+  spam: z.enum(["only"]).optional().catch(undefined),
   created: z.enum(DATE_RANGES).optional().catch(undefined),
   updated: z.enum(DATE_RANGES).optional().catch(undefined),
 });
@@ -75,6 +81,8 @@ export const ticketQuerySchema = ticketFiltersSchema.extend({
   view: z.enum(TICKET_VIEWS).catch("all"),
   q: z.string().trim().max(120).catch(""),
   sort: z.enum(TICKET_SORTS).catch("updated_desc"),
+  /** Ticket shown in the side panel next to the list (wide screens). */
+  open: z.string().trim().max(64).optional().catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
   size: z.coerce
     .number()
@@ -95,6 +103,8 @@ export const FILTER_KEYS = [
   "created",
   "updated",
   "sla",
+  "tags",
+  "spam",
 ] as const satisfies readonly (keyof TicketFilters)[];
 export type FilterKey = (typeof FILTER_KEYS)[number];
 

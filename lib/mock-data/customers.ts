@@ -1,20 +1,20 @@
 import type { Contact, Customer } from "@/lib/types/ticket";
 
 export const CUSTOMERS: Customer[] = [
-  { id: "cus-acme", name: "Acme Technologies", domain: "acmetech.example", phone: "+1 555 014 8900", type: "Business", plan: "Growth", customerSince: "2022-03-14" },
-  { id: "cus-northstar", name: "Northstar Retail", domain: "northstarretail.example", phone: "+1 555 017 2200", type: "Enterprise", plan: "Enterprise", customerSince: "2020-11-02" },
-  { id: "cus-bluepeak", name: "BluePeak Logistics", domain: "bluepeak.example", phone: "+1 555 019 4410", type: "Business", plan: "Growth", customerSince: "2023-06-21" },
-  { id: "cus-vertex", name: "Vertex Health", domain: "vertexhealth.example", phone: "+1 555 012 7730", type: "Enterprise", plan: "Enterprise", customerSince: "2021-08-09" },
-  { id: "cus-cedar", name: "Cedar Finance", domain: "cedarfinance.example", phone: "+1 555 016 3050", type: "Business", plan: "Starter", customerSince: "2024-01-15" },
-  { id: "cus-orion", name: "Orion Manufacturing", domain: "orionmfg.example", phone: "+1 555 018 6620", type: "Enterprise", plan: "Growth", customerSince: "2022-09-30" },
-  { id: "cus-lumen", name: "Lumen Education", domain: "lumen-edu.example", phone: "+1 555 013 9180", type: "Business", plan: "Starter", customerSince: "2025-02-11" },
-  { id: "cus-shah", name: "Ravi Shah", domain: "", phone: "+1 555 011 4472", type: "Individual", plan: "Professional", customerSince: "2025-07-03" },
+  { id: "cus-acme", status: "active", name: "Acme Technologies", domain: "acmetech.example", phone: "+1 555 014 8900", type: "Business", plan: "Growth", customerSince: "2022-03-14" },
+  { id: "cus-northstar", status: "active", name: "Northstar Retail", domain: "northstarretail.example", phone: "+1 555 017 2200", type: "Enterprise", plan: "Enterprise", customerSince: "2020-11-02" },
+  { id: "cus-bluepeak", status: "at_risk", name: "BluePeak Logistics", domain: "bluepeak.example", phone: "+1 555 019 4410", type: "Business", plan: "Growth", customerSince: "2023-06-21" },
+  { id: "cus-vertex", status: "active", name: "Vertex Health", domain: "vertexhealth.example", phone: "+1 555 012 7730", type: "Enterprise", plan: "Enterprise", customerSince: "2021-08-09" },
+  { id: "cus-cedar", status: "at_risk", name: "Cedar Finance", domain: "cedarfinance.example", phone: "+1 555 016 3050", type: "Business", plan: "Starter", customerSince: "2024-01-15" },
+  { id: "cus-orion", status: "active", name: "Orion Manufacturing", domain: "orionmfg.example", phone: "+1 555 018 6620", type: "Enterprise", plan: "Growth", customerSince: "2022-09-30" },
+  { id: "cus-lumen", status: "active", name: "Lumen Education", domain: "lumen-edu.example", phone: "+1 555 013 9180", type: "Business", plan: "Starter", customerSince: "2025-02-11" },
+  { id: "cus-shah", status: "inactive", name: "Ravi Shah", domain: "", phone: "+1 555 011 4472", type: "Individual", plan: "Professional", customerSince: "2025-07-03" },
 ];
 
 export const CONTACTS: Contact[] = [
   { id: "con-michael", customerId: "cus-acme", name: "Michael Carter", title: "Operations Analyst", email: "michael.carter@example.com", phone: "+1 555 014 8921", avatar: "/avatars/con-michael.jpg" },
   { id: "con-priya", customerId: "cus-acme", name: "Priya Raman", title: "IT Administrator", email: "priya.raman@acmetech.example", phone: "+1 555 014 8934", avatar: "/avatars/con-priya.jpg" },
-  { id: "con-emily", customerId: "cus-northstar", name: "Emily Parker", title: "E-commerce Manager", email: "emily.parker@northstarretail.example", phone: "+1 555 017 2241", avatar: "/avatars/con-emily.jpg" },
+  { id: "con-rachel", customerId: "cus-northstar", name: "Rachel Kim", title: "E-commerce Manager", email: "rachel.kim@northstarretail.example", phone: "+1 555 017 2241", avatar: "/avatars/con-emily.jpg" },
   { id: "con-marcus", customerId: "cus-northstar", name: "Marcus Lee", title: "Finance Lead", email: "marcus.lee@northstarretail.example", phone: "+1 555 017 2258", avatar: "/avatars/con-marcus.jpg" },
   { id: "con-dbrooks", customerId: "cus-bluepeak", name: "Daniel Brooks", title: "Systems Engineer", email: "daniel.brooks@bluepeak.example", phone: "+1 555 019 4427", avatar: "/avatars/con-dbrooks.jpg" },
   { id: "con-hannah", customerId: "cus-bluepeak", name: "Hannah Ortiz", title: "Operations Coordinator", email: "hannah.ortiz@bluepeak.example", phone: "+1 555 019 4439", avatar: "/avatars/con-hannah.jpg" },

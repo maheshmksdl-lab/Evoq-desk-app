@@ -11,7 +11,7 @@ import type {
 
 /** Status → pill tone (dot + label pills, ServiceOps style). `dot` is used for small inline dots. */
 export const STATUS_META: Record<TicketStatus, { label: string; tone: "teal" | "amber" | "orange" | "blue" | "gray"; dot: string }> = {
-  open: { label: "Open", tone: "teal", dot: "bg-[#0D9488]" },
+  open: { label: "Open", tone: "teal", dot: "bg-[#0F9D7A]" },
   pending: { label: "Pending", tone: "amber", dot: "bg-[#D97706]" },
   on_hold: { label: "On Hold", tone: "orange", dot: "bg-[#EA580C]" },
   resolved: { label: "Resolved", tone: "blue", dot: "bg-[#2563EB]" },
@@ -56,7 +56,7 @@ export const SOURCE_LABEL: Record<TicketSource, string> = {
 };
 
 export const SLA_META: Record<SlaState, { label: string; text: string; badge: string }> = {
-  on_track: { label: "On Track", text: "text-slate-700", badge: "bg-teal-50 text-teal-800 ring-teal-600/20" },
+  on_track: { label: "On Track", text: "text-slate-700", badge: "bg-emerald-50 text-emerald-800 ring-emerald-600/20" },
   at_risk: { label: "At Risk", text: "text-amber-700", badge: "bg-amber-50 text-amber-800 ring-amber-600/25" },
   breached: { label: "Breached", text: "text-red-700", badge: "bg-red-50 text-red-700 ring-red-600/20" },
   met: { label: "Met", text: "text-slate-600", badge: "bg-slate-100 text-slate-700 ring-slate-500/20" },

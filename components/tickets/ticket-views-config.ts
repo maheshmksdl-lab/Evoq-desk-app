@@ -10,7 +10,9 @@ import {
   TimerIcon,
   TrayIcon,
   UserCircleIcon,
+  UsersIcon,
   ArchiveIcon,
+  ClockCounterClockwiseIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { TicketView } from "@/lib/schemas/ticket";
 
@@ -40,14 +42,20 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
     icon: CircleDashedIcon,
     empty: { title: "No unassigned tickets", hint: "You're all caught up — every ticket has an owner." },
   },
+  team: {
+    label: "Team",
+    description: "Unresolved tickets for your team.",
+    icon: UsersIcon,
+    empty: { title: "Nothing open for your team", hint: "Your team's queue is clear." },
+  },
   open: {
-    label: "Open",
-    description: "Tickets waiting on the support team.",
+    label: "All Open",
+    description: "Every open ticket waiting on the support team.",
     icon: TrayIcon,
     empty: { title: "No open tickets", hint: "Nothing is waiting on the support team right now." },
   },
   pending: {
-    label: "Pending",
+    label: "Waiting",
     description: "Waiting for the customer to respond.",
     icon: HourglassIcon,
     empty: { title: "No pending tickets", hint: "No tickets are waiting on customers." },
@@ -82,6 +90,12 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
     icon: TimerIcon,
     empty: { title: "No SLAs at risk", hint: "Every active ticket is comfortably within target." },
   },
+  recent: {
+    label: "Recently Updated",
+    description: "Tickets with activity in the last 24 hours.",
+    icon: ClockCounterClockwiseIcon,
+    empty: { title: "Nothing updated today", hint: "Tickets with activity in the last 24 hours appear here." },
+  },
   overdue: {
     label: "Overdue",
     description: "SLA targets already missed.",
@@ -93,6 +107,4 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
 /** Views shown as tabs above the list; the rest live under "More views". */
 export const PRIMARY_VIEWS: TicketView[] = ["all", "mine", "unassigned", "high_priority", "sla_at_risk", "overdue"];
 export const STATUS_VIEWS: TicketView[] = ["open", "pending", "on_hold", "resolved", "closed"];
-/** Compact list for the sidebar under Tickets. */
-export const SIDEBAR_VIEWS: TicketView[] = ["all", "mine", "unassigned", "open", "pending", "on_hold", "resolved", "closed"];
 

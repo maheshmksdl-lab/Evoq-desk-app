@@ -4,7 +4,15 @@ import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { ActionsProvider } from "@/components/layout/actions-context";
 import { NewTicketProvider } from "@/components/tickets/new-ticket-dialog";
+import { useRemoteChangeSync } from "@/hooks/use-presence";
+
+/** Refetches tickets that other agents change (presence channel events). */
+function RemoteChangeSync() {
+  useRemoteChangeSync();
+  return null;
+}
 
 export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(
@@ -18,7 +26,10 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={client}>
       <TooltipProvider delayDuration={300}>
-        <NewTicketProvider>{children}</NewTicketProvider>
+        <RemoteChangeSync />
+        <ActionsProvider>
+          <NewTicketProvider>{children}</NewTicketProvider>
+        </ActionsProvider>
         <Toaster
           position="bottom-right"
           toastOptions={{

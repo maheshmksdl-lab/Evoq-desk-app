@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   ArrowSquareOutIcon,
   CheckCircleIcon,
@@ -35,6 +34,7 @@ import { SUGGESTED_TAGS } from "@/lib/mock-data/tickets";
 import { PRIORITY_META, STATUS_META } from "@/lib/ticket-meta";
 import { TICKET_PRIORITIES, TICKET_STATUSES, type TicketPriority, type TicketStatus } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
+import { TicketLink } from "./ticket-link";
 
 /** The fields any ticket action needs — satisfied by both list rows and full tickets. */
 export interface ActionableTicket {
@@ -58,6 +58,8 @@ export function useTicketActions(ticket: ActionableTicket) {
 
   return {
     pending: update.isPending,
+    /** Any other patch, with its confirmation message. */
+    update: run,
     assign: (agentId: string | null) => {
       if (agentId === (ticket.assignee?.id ?? null)) return;
       const agent = lookups?.agents.find((a) => a.id === agentId);
@@ -190,9 +192,9 @@ export function TicketRowActions({ ticket }: { ticket: ActionableTicket }) {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
         <DropdownMenuItem asChild>
-          <Link href={`/tickets/${ticket.id}`}>
+          <TicketLink ticketId={ticket.id}>
             <ArrowSquareOutIcon size={16} aria-hidden /> Open
-          </Link>
+          </TicketLink>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuSub>

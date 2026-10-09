@@ -34,7 +34,7 @@ export const SORT_LABEL: Record<TicketSort, string> = {
   sla_asc: "SLA due soonest",
 };
 
-type ListKey = Exclude<FilterKey, "created" | "updated">;
+type ListKey = Exclude<FilterKey, "created" | "updated" | "spam">;
 
 export const KEY_LABEL: Record<FilterKey, string> = {
   status: "Status",
@@ -48,6 +48,8 @@ export const KEY_LABEL: Record<FilterKey, string> = {
   source: "Source",
   created: "Created",
   updated: "Updated",
+  tags: "Tags",
+  spam: "Spam",
 };
 
 /** Human label for one filter value — shared by the drawer, filter bar and chips. */
@@ -71,6 +73,10 @@ export function valueLabel(key: FilterKey, value: string, lookups?: Lookups): st
       return lookups?.teams.find((t) => t.id === value)?.name ?? value;
     case "customer":
       return lookups?.customers.find((c) => c.id === value)?.name ?? value;
+    case "tags":
+      return value;
+    case "spam":
+      return "Spam only";
     case "created":
     case "updated":
       return DATE_LABEL[value as DateRange];
@@ -79,7 +85,7 @@ export function valueLabel(key: FilterKey, value: string, lookups?: Lookups): st
 
 // ── Filter drawer ────────────────────────────────────────────────────
 
-/** "More filters" icon button (ServiceOps sliders button) + the full filter drawer. */
+/** "More filters" sliders button for the list toolbar + the full filter drawer. */
 export function TicketFiltersButton({
   filters,
   sort,
@@ -141,12 +147,12 @@ export function TicketFiltersButton({
         }}
         aria-label={active ? `More filters and sorting, ${active} filters active` : "More filters and sorting"}
         className={cn(
-          "relative inline-flex size-11 shrink-0 items-center justify-center rounded-xl border bg-card text-ink transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action max-sm:w-full max-sm:gap-2 max-sm:text-button-sm",
-          active ? "border-desk" : "border-line",
+          "relative inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action",
+          active ? "border-desk/40 bg-desk-tint text-desk" : "border-line bg-card text-ink-body",
         )}
       >
-        <FadersHorizontalIcon size={18} aria-hidden />
-        <span className="sm:hidden">More filters</span>
+        <FadersHorizontalIcon size={16} aria-hidden />
+        <span className="sm:sr-only">More</span>
         {active > 0 && (
           <span className="absolute -top-1.5 -right-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-desk px-1 text-[10px] font-bold text-white">
             {active}
@@ -209,6 +215,7 @@ export function TicketFiltersButton({
         {listSection("type", TICKET_TYPES.map((t) => ({ value: t, label: TYPE_LABEL[t] })))}
         {listSection("category", TICKET_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] })))}
         {listSection("customer", (lookups?.customers ?? []).map((c) => ({ value: c.id, label: c.name })))}
+        {listSection("tags", (lookups?.tags ?? []).map((t) => ({ value: t, label: t })))}
         {listSection(
           "source",
           TICKET_SOURCES.map((s) => {
@@ -218,6 +225,16 @@ export function TicketFiltersButton({
         )}
         {dateSection("created")}
         {dateSection("updated")}
+        <DrawerSection title={KEY_LABEL.spam}>
+          <div className="flex flex-wrap gap-2">
+            <Chip selected={!draft.spam} onClick={() => setDraft((d) => ({ ...d, spam: undefined }))}>
+              Hide spam
+            </Chip>
+            <Chip selected={draft.spam === "only"} onClick={() => setDraft((d) => ({ ...d, spam: "only" }))}>
+              Show spam only
+            </Chip>
+          </div>
+        </DrawerSection>
       </SideDrawer>
     </>
   );
@@ -263,20 +280,20 @@ export function ActiveFilterChips({
   if (!entries.length) return null;
 
   return (
-    <div className="mt-3 flex flex-wrap items-center gap-2" aria-label="Active filters">
+    <div className="flex flex-wrap items-center gap-2 px-4 pb-3 sm:px-5" aria-label="Active filters">
       {entries.map((key) => {
         const raw = filters[key];
         const values = Array.isArray(raw) ? raw : [raw as string];
         const text = values.map((v) => valueLabel(key, v, lookups)).join(", ");
         return (
-          <span key={key} className="inline-flex h-8 max-w-full items-center gap-1 rounded-full bg-desk-10 pr-1 pl-3 text-caption text-ink">
+          <span key={key} className="inline-flex h-7 max-w-full items-center gap-1 rounded-lg bg-desk-10 pr-1 pl-2.5 text-caption text-ink">
             <span className="text-ink-muted">{KEY_LABEL[key]}:</span>
             <span className="truncate font-medium">{text}</span>
             <button
               type="button"
               onClick={() => onChange({ ...filters, [key]: Array.isArray(raw) ? [] : undefined })}
               aria-label={`Remove ${KEY_LABEL[key]} filter`}
-              className="inline-flex size-6 items-center justify-center rounded-full text-ink-muted hover:bg-white hover:text-ink"
+              className="inline-flex size-5 items-center justify-center rounded-md text-ink-muted hover:bg-white hover:text-ink"
             >
               <XIcon size={12} aria-hidden />
             </button>

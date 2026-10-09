@@ -14,8 +14,9 @@ function pageList(current: number, total: number): (number | "…")[] {
 }
 
 const btn =
-  "inline-flex size-9 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:border-desk disabled:opacity-40 disabled:hover:border-line focus-visible:outline-2 focus-visible:outline-desk-action";
+  "inline-flex size-8 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:border-desk disabled:opacity-40 disabled:hover:border-line focus-visible:outline-2 focus-visible:outline-desk-action";
 
+/** List footer: "1–25 of 80 tickets" on the left, rows-per-page and pages on the right. */
 export function TicketPagination({
   page,
   pageCount,
@@ -23,6 +24,7 @@ export function TicketPagination({
   total,
   onPage,
   onPageSize,
+  compact = false,
 }: {
   page: number;
   pageCount: number;
@@ -30,53 +32,56 @@ export function TicketPagination({
   total: number;
   onPage: (p: number) => void;
   onPageSize: (s: (typeof PAGE_SIZES)[number]) => void;
+  /** Narrow queue column beside an open ticket: count and pages only, stacked. */
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-between gap-3 px-1 pt-6 pb-2 sm:flex-row sm:px-2">
+    <div className={cn("flex flex-col items-center justify-between gap-3 border-t border-line-soft px-4 py-3", !compact && "sm:flex-row sm:px-5")}>
+      <p className="text-[13px] text-ink-muted" aria-live="polite">
+        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} tickets
+      </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
-        <p className="text-body text-ink-body" aria-live="polite">
-          Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total} tickets
-        </p>
-        <FilterSelect
+        {!compact && <FilterSelect
+          variant="pill"
           label="Rows per page"
           value={String(pageSize)}
           placeholder="25 per page (default)"
           options={PAGE_SIZES.map((s) => ({ value: String(s), label: `${s} per page` }))}
           onChange={(v) => onPageSize(Number(v || 25) as (typeof PAGE_SIZES)[number])}
-          className="h-9 border-line px-3 text-body"
-        />
+          className="border-line bg-card text-ink-body"
+        />}
+        {pageCount > 1 && (
+          <nav aria-label="Pagination" className="flex flex-wrap items-center justify-center gap-1.5">
+            <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => onPage(page - 1)} className={btn}>
+              <CaretLeftIcon size={14} weight="bold" aria-hidden />
+            </button>
+            {pageList(page, pageCount).map((p, i) =>
+              p === "…" ? (
+                <span key={`gap-${i}`} className="w-6 text-center text-body text-ink-muted" aria-hidden>
+                  …
+                </span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => onPage(p)}
+                  aria-label={`Page ${p}`}
+                  aria-current={p === page ? "page" : undefined}
+                  className={cn(
+                    "size-8 min-w-8 rounded-lg border text-button-sm transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
+                    p === page ? "border-desk bg-desk-tint text-desk" : "border-line text-ink hover:border-desk",
+                  )}
+                >
+                  {p}
+                </button>
+              ),
+            )}
+            <button type="button" aria-label="Next page" disabled={page === pageCount} onClick={() => onPage(page + 1)} className={btn}>
+              <CaretRightIcon size={14} weight="bold" aria-hidden />
+            </button>
+          </nav>
+        )}
       </div>
-      {pageCount > 1 && (
-        <nav aria-label="Pagination" className="flex flex-wrap items-center justify-center gap-2">
-          <button type="button" aria-label="Previous page" disabled={page === 1} onClick={() => onPage(page - 1)} className={btn}>
-            <CaretLeftIcon size={14} weight="bold" aria-hidden />
-          </button>
-          {pageList(page, pageCount).map((p, i) =>
-            p === "…" ? (
-              <span key={`gap-${i}`} className="w-6 text-center text-body text-ink-muted" aria-hidden>
-                …
-              </span>
-            ) : (
-              <button
-                key={p}
-                type="button"
-                onClick={() => onPage(p)}
-                aria-label={`Page ${p}`}
-                aria-current={p === page ? "page" : undefined}
-                className={cn(
-                  "size-9 min-w-9 rounded-lg border text-button-sm transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
-                  p === page ? "border-desk bg-desk-tint text-desk" : "border-line text-ink hover:border-desk",
-                )}
-              >
-                {p}
-              </button>
-            ),
-          )}
-          <button type="button" aria-label="Next page" disabled={page === pageCount} onClick={() => onPage(page + 1)} className={btn}>
-            <CaretRightIcon size={14} weight="bold" aria-hidden />
-          </button>
-        </nav>
-      )}
     </div>
   );
 }

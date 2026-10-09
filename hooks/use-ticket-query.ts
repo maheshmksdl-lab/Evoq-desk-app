@@ -1,57 +1,45 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { parseTicketPath, ticketHref, ticketListHref } from "@/lib/ticket-routes";
 import {
   EMPTY_FILTERS,
   FILTER_KEYS,
   parseTicketQuery,
   type TicketFilters,
   type TicketQuery,
-  type TicketView,
 } from "@/lib/schemas/ticket";
 
-const DEFAULTS: Pick<TicketQuery, "view" | "q" | "sort" | "page" | "size"> = {
-  view: "all",
-  q: "",
-  sort: "updated_desc",
-  page: 1,
-  size: 25,
-};
-
-/** Serialises a query to URL params, leaving out defaults so links stay short. */
-export function ticketQueryToParams(query: Partial<TicketQuery>): URLSearchParams {
-  const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(query)) {
-    if (value === undefined || value === "" || (Array.isArray(value) && !value.length)) continue;
-    if (key in DEFAULTS && DEFAULTS[key as keyof typeof DEFAULTS] === value) continue;
-    params.set(key, Array.isArray(value) ? value.join(",") : String(value));
-  }
-  return params;
-}
-
-export function ticketViewHref(view: TicketView) {
-  return view === "all" ? "/tickets" : `/tickets?view=${view}`;
-}
-
 /**
- * Ticket list state lives in the URL (view, search, filters, sort, page),
- * so views are shareable, survive refresh, and work with back/forward.
+ * Inbox state lives in the URL, so queues and open tickets are shareable,
+ * survive refresh, and work with back/forward:
+ *   /inbox/<queue>?filters          a queue
+ *   /tickets/<id>?view=…&filters    the same queue with that ticket open
+ * The path wins over `?view` / `?open`. Changes go through the native History
+ * API (which Next keeps in sync with usePathname / useSearchParams), so the
+ * Inbox never remounts — opening, switching and closing tickets is instant.
  */
 export function useTicketQuery() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const query = useMemo(() => parseTicketQuery(new URLSearchParams(searchParams.toString())), [searchParams]);
+  const query = useMemo(() => {
+    const parsed = parseTicketQuery(new URLSearchParams(searchParams.toString()));
+    const route = parseTicketPath(pathname);
+    return { ...parsed, view: route.view ?? parsed.view, open: route.ticketId ?? parsed.open?.toUpperCase() };
+  }, [searchParams, pathname]);
 
   const setQuery = useCallback(
     (patch: Partial<TicketQuery>, opts: { keepPage?: boolean } = {}) => {
       const next = { ...query, ...patch };
       if (!opts.keepPage && !("page" in patch)) next.page = 1;
-      const qs = ticketQueryToParams(next).toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+      const href = next.open ? ticketHref(next.open, next) : ticketListHref(next);
+      if (href === `${window.location.pathname}${window.location.search}`) return;
+      // A new queue or ticket is a new place (history entry); refining the current one isn't.
+      const place = next.view !== query.view || next.open !== query.open;
+      window.history[place ? "pushState" : "replaceState"](null, "", href);
     },
-    [query, router, pathname],
+    [query],
   );
 
   const filters: TicketFilters = useMemo(
@@ -61,6 +49,8 @@ export function useTicketQuery() {
 
   const setFilters = useCallback((next: TicketFilters) => setQuery(next), [setQuery]);
   const clearFilters = useCallback(() => setQuery({ ...EMPTY_FILTERS }), [setQuery]);
+  /** Opens a ticket in the workspace (or closes it with `undefined`), keeping the queue as it is. */
+  const openTicket = useCallback((id: string | undefined) => setQuery({ open: id?.toUpperCase() }, { keepPage: true }), [setQuery]);
 
-  return { query, setQuery, filters, setFilters, clearFilters };
+  return { query, setQuery, filters, setFilters, clearFilters, openTicket };
 }
