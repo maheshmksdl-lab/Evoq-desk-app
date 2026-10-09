@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { TicketList } from "@/components/tickets/ticket-list";
+import { TicketRoute } from "@/components/tickets/ticket-route";
 import { TicketListFallback } from "@/components/tickets/ticket-list-fallback";
 import { VIEW_META } from "@/components/tickets/ticket-views-config";
 import { INBOX_QUEUES, INBOX_SLUGS, type InboxSlug } from "@/lib/ticket-routes";
@@ -22,7 +22,7 @@ export default function InboxQueuePage() {
   return (
     // The list reads its state from the URL, so it renders on the client inside Suspense.
     <Suspense fallback={<TicketListFallback />}>
-      <TicketList />
+      <TicketRoute />
     </Suspense>
   );
 }

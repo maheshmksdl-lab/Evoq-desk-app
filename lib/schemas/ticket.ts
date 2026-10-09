@@ -16,6 +16,7 @@ export const TICKET_VIEWS = [
   "unassigned",
   "team",
   "open",
+  "new",
   "pending",
   "on_hold",
   "resolved",

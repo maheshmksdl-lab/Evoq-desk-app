@@ -11,6 +11,7 @@ export const INBOX_QUEUES = {
   unassigned: "unassigned",
   team: "team",
   open: "open",
+  new: "new",
   waiting: "pending",
   "sla-at-risk": "sla_at_risk",
   recent: "recent",
@@ -18,7 +19,7 @@ export const INBOX_QUEUES = {
 
 export type InboxSlug = keyof typeof INBOX_QUEUES;
 export const INBOX_SLUGS = Object.keys(INBOX_QUEUES) as InboxSlug[];
-export const DEFAULT_INBOX: InboxSlug = "my-tickets";
+export const DEFAULT_INBOX: InboxSlug = "open";
 
 export function isInboxSlug(slug: string): slug is InboxSlug {
   return slug in INBOX_QUEUES;

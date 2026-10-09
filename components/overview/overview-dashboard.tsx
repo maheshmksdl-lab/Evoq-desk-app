@@ -183,7 +183,7 @@ function AttentionList({ tickets, now }: { tickets: TicketSummary[]; now: number
               <li key={t.id}>
                 <Link
                   href={ticketHref(t.id, { view: "mine" })}
-                  className="group -mx-2 flex items-start gap-3 sm:gap-4 rounded-xl px-2 py-4 transition-colors hover:bg-desk-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action"
+                  className="group -mx-2 flex items-start gap-3 sm:gap-4 rounded-xl px-2 py-6 transition-colors hover:bg-desk-surface focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action"
                 >
                   <PersonAvatar name={t.contact.name} src={t.contact.avatar} size="xl" className="[&_[data-slot=avatar]]:size-10 sm:[&_[data-slot=avatar]]:size-12" />
                   <span className="min-w-0 flex-1">
@@ -291,7 +291,7 @@ function RecentActivity({ items }: { items: TeamActivityItem[] }) {
                   </span>
                   {i < items.length - 1 && <span className="my-1 w-px flex-1 bg-line" aria-hidden />}
                 </span>
-                <div className="min-w-0 flex-1 pb-3">
+                <div className="min-w-0 flex-1 pb-5">
                   <div className="flex items-start gap-3">
                     <p className="min-w-0 flex-1 text-[13px] leading-5 text-ink-body">
                       <span className="font-medium text-ink">{a.agent.name}</span> {a.action}{" "}

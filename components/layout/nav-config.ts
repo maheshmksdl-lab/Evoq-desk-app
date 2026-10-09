@@ -3,16 +3,17 @@ import {
   BookOpenIcon,
   ChartLineUpIcon,
   ChatCircleDotsIcon,
+  CircleIcon,
   ClockCounterClockwiseIcon,
   ClockIcon,
   GearSixIcon,
   HouseIcon,
   RobotIcon,
+  SparkleIcon,
   TicketIcon,
   TrayIcon,
   UserIcon,
   UserCircleDashedIcon,
-  UsersIcon,
   UsersThreeIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { TicketView } from "@/lib/schemas/ticket";
@@ -30,21 +31,22 @@ export interface NavItem {
 export interface InboxQueue {
   label: string;
   icon: Icon;
-  /** Icon colour when the queue needs attention. */
-  tone?: "orange" | "red";
   view: TicketView;
+  /** Show the queue's ticket count beside it. */
+  counted?: boolean;
 }
 
 export const OVERVIEW: NavItem = { label: "Overview", href: "/overview", icon: HouseIcon, available: true };
 
-export const INBOX: NavItem = { label: "Inbox", href: "/inbox/my-tickets", icon: TrayIcon, available: true };
+export const INBOX: NavItem = { label: "Inbox", href: "/inbox/open", icon: TrayIcon, available: true };
 
 export const INBOX_QUEUES: InboxQueue[] = [
-  { label: "My tickets", icon: UserIcon, view: "mine" },
-  { label: "Unassigned", icon: UserCircleDashedIcon, view: "unassigned" },
-  { label: "Team", icon: UsersIcon, view: "team" },
-  { label: "SLA at risk", icon: ClockIcon, tone: "orange", view: "sla_at_risk" },
-  { label: "Waiting for customer", icon: ChatCircleDotsIcon, tone: "red", view: "pending" },
+  { label: "All open", icon: CircleIcon, view: "open", counted: true },
+  { label: "New", icon: SparkleIcon, view: "new", counted: true },
+  { label: "My tickets", icon: UserIcon, view: "mine", counted: true },
+  { label: "Unassigned", icon: UserCircleDashedIcon, view: "unassigned", counted: true },
+  { label: "SLA at risk", icon: ClockIcon, view: "sla_at_risk", counted: true },
+  { label: "Waiting for customer", icon: ChatCircleDotsIcon, view: "pending", counted: true },
   { label: "Recently updated", icon: ClockCounterClockwiseIcon, view: "recent" },
 ];
 
@@ -58,3 +60,9 @@ export const MAIN_ITEMS: NavItem[] = [
 ];
 
 export const queueHref = (q: InboxQueue) => viewPath(q.view);
+
+/** The sidebar's name for an inbox view ("All open"), for the Inbox list title. */
+export const queueLabel = (view: TicketView) => INBOX_QUEUES.find((q) => q.view === view)?.label;
+
+/** A team's queue: its open tickets in the Inbox. */
+export const teamHref = (teamId: string) => `${viewPath("open")}?team=${encodeURIComponent(teamId)}`;

@@ -183,6 +183,8 @@ function matchesView(t: TicketSummary, view: TicketView): boolean {
       return !t.assignee && isActive(t.status);
     case "team":
       return t.team.id === agentById.get(CURRENT_AGENT_ID)!.teamId && isActive(t.status);
+    case "new":
+      return t.status === "open" && t.sla.firstRespondedAt === null;
     case "open":
     case "pending":
     case "on_hold":
@@ -292,6 +294,14 @@ export async function getViewCounts(): Promise<ViewCounts> {
     .filter((t) => !t.spam)
     .map((t) => toSummary(t, now));
   return Object.fromEntries(TICKET_VIEWS.map((v) => [v, rows.filter((t) => matchesView(t, v)).length])) as ViewCounts;
+}
+
+/** Open tickets per team, keyed by team id — the sidebar's Teams list (each links to its open queue). */
+export async function getTeamCounts(): Promise<Record<string, number>> {
+  await delay(80);
+  const counts: Record<string, number> = Object.fromEntries(TEAMS.map((t) => [t.id, 0]));
+  for (const t of db()) if (!t.spam && t.status === "open") counts[t.teamId] = (counts[t.teamId] ?? 0) + 1;
+  return counts;
 }
 
 export async function getTicket(id: string): Promise<Ticket | null> {

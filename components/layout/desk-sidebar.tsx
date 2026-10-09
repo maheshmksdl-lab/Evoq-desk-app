@@ -1,19 +1,18 @@
 "use client";
 
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LightningIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
+import { CaretDownIcon, CaretRightIcon, LightningIcon, UsersThreeIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useViewCounts } from "@/hooks/use-tickets";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { useLookups, useTeamCounts, useViewCounts } from "@/hooks/use-tickets";
 import { useRegisterAction } from "./actions-context";
 import { cn } from "@/lib/utils";
 import { DeskLogo } from "./desk-logo";
-import { INBOX, INBOX_QUEUES, MAIN_ITEMS, OVERVIEW, queueHref, type InboxQueue, type NavItem } from "./nav-config";
+import { INBOX, INBOX_QUEUES, MAIN_ITEMS, OVERVIEW, queueHref, teamHref, type NavItem } from "./nav-config";
 import { useShell } from "./shell-context";
-
-const TONE_TEXT = { orange: "text-[#EA580C]", red: "text-[#E5484D]" } as const;
 
 /** Wraps collapsed-rail items in a right-side tooltip. */
 function RailTip({ show, label, children }: { show: boolean; label: string; children: React.ReactElement }) {
@@ -29,13 +28,19 @@ function RailTip({ show, label, children }: { show: boolean; label: string; chil
 function NavRow({ item, active, collapsed, onNavigate }: { item: NavItem; active: boolean; collapsed: boolean; onNavigate?: () => void }) {
   const IconCmp = item.icon;
   const cls = cn(
-    "group flex items-center rounded-lg text-[14px] leading-5 transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
-    collapsed ? "mx-auto size-10 justify-center" : "h-10 w-full gap-3 px-3",
-    active ? "bg-desk-10 font-semibold text-ink" : "font-medium text-ink-body hover:bg-desk-depth-10 hover:text-ink",
+    "group relative flex items-center rounded-lg text-[15px] leading-5 transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
+    collapsed ? "mx-auto size-10 justify-center" : "h-11 w-full gap-3.5 px-3",
+    active
+      ? cn(
+          "bg-desk-10 font-semibold text-ink",
+          // Expanded: the active row runs to the sidebar's edge, marked by a bar.
+          !collapsed && "-ml-3 w-[calc(100%+12px)] rounded-l-none pl-6 before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:rounded-r-full before:bg-desk",
+        )
+      : "font-medium text-ink-body hover:bg-desk-depth-10 hover:text-ink",
   );
   const body = (
     <>
-      <IconCmp size={19} weight={active ? "fill" : "regular"} aria-hidden className={cn("shrink-0", active ? "text-desk" : "text-ink-muted group-hover:text-ink")} />
+      <IconCmp size={20} weight={active ? "fill" : "regular"} aria-hidden className={cn("shrink-0", active ? "text-desk" : "text-ink-body group-hover:text-ink")} />
       <span className={collapsed ? "sr-only" : "truncate"}>{item.label}</span>
     </>
   );
@@ -62,65 +67,151 @@ function NavRow({ item, active, collapsed, onNavigate }: { item: NavItem; active
   );
 }
 
-function QueueRow({ queue, active, count, onNavigate }: { queue: InboxQueue; active: boolean; count?: number; onNavigate?: () => void }) {
-  const IconCmp = queue.icon;
+/** A queue or team inside a group: glyph, label, then its count on the right. */
+function SubRow({
+  href,
+  label,
+  icon,
+  active,
+  count,
+  onNavigate,
+}: {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  active: boolean;
+  count?: number;
+  onNavigate?: () => void;
+}) {
   return (
     <li>
       <Link
-        href={queueHref(queue)}
+        href={href}
         onClick={onNavigate}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex h-8 items-center gap-2.5 rounded-lg pr-3 pl-6 text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
-          active ? "bg-desk-10 font-semibold text-ink" : "text-ink-body hover:bg-desk-depth-10 hover:text-ink",
+          "group flex h-[34px] items-center gap-3 rounded-lg px-3 text-[14px] transition-colors focus-visible:outline-2 focus-visible:outline-desk-action",
+          active ? "bg-desk-10 font-medium text-desk" : "text-ink-body hover:bg-desk-depth-10 hover:text-ink",
         )}
       >
-        <IconCmp size={16} aria-hidden className={cn("shrink-0", queue.tone ? TONE_TEXT[queue.tone] : active ? "text-desk" : "text-ink-muted")} />
-        <span className="flex-1 truncate">{queue.label}</span>
-        {count !== undefined && <span className={cn("text-[12px] tabular-nums", active ? "font-semibold text-ink" : "text-ink-muted")}>{count}</span>}
+        <span className={cn("flex w-5 shrink-0 justify-center", active ? "text-desk" : "text-ink-faint group-hover:text-ink-muted")}>{icon}</span>
+        <span className="flex-1 truncate">{label}</span>
+        {count !== undefined && <span className={cn("text-[13px] tabular-nums", active ? "font-semibold text-desk" : "text-ink-muted")}>{count}</span>}
       </Link>
     </li>
   );
 }
 
-/** The open ticket's queue (/tickets/<id>?view=mine) — read in its own Suspense boundary. */
-function TicketViewParam({ onView }: { onView: (view: string | null) => ReactNode }) {
-  return onView(useSearchParams().get("view"));
+/** Teams: a collapsible group, each team linking to its open queue in the Inbox. */
+function TeamsGroup({ activeTeam, onNavigate }: { activeTeam: string | null; onNavigate?: () => void }) {
+  const [open, setOpen] = useState(true);
+  const { data: lookups } = useLookups();
+  const { data: counts } = useTeamCounts();
+  const hydrated = useHydrated();
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex h-10 w-full items-center gap-2.5 rounded-lg px-1 text-[15px] font-semibold text-ink transition-colors hover:bg-desk-depth-10 focus-visible:outline-2 focus-visible:outline-desk-action"
+      >
+        <CaretDownIcon size={14} weight="bold" aria-hidden className={cn("shrink-0 text-ink-muted transition-transform", !open && "-rotate-90")} />
+        <UsersThreeIcon size={20} aria-hidden className="shrink-0 text-ink-body" />
+        Teams
+      </button>
+      {open && (
+        <ul className="space-y-0.5 pt-0.5 pl-4" aria-label="Teams">
+          {(lookups?.teams ?? []).map((t) => (
+            <SubRow
+              key={t.id}
+              href={teamHref(t.id)}
+              label={t.name}
+              icon={<CaretRightIcon size={12} weight="bold" aria-hidden />}
+              active={activeTeam === t.id}
+              count={hydrated ? counts?.[t.id] : undefined}
+              onNavigate={onNavigate}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
-/** Overview · Inbox (with its queues) · then the modules. */
+/** The queue (?view on a ticket URL) and team (?team) in the URL — read in their own Suspense boundary. */
+function UrlParams({ children }: { children: (params: { view: string | null; team: string | null }) => ReactNode }) {
+  const params = useSearchParams();
+  const team = params.get("team");
+  // Only a single-team filter is that team's queue.
+  return children({ view: params.get("view"), team: team && !team.includes(",") ? team : null });
+}
+
+/** Overview · Inbox (with its queues) · Teams · then the modules. */
 function Nav(props: { collapsed: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
-  // A ticket URL keeps its queue in ?view, so the queue it was opened from stays highlighted.
-  if (!pathname.startsWith("/tickets/")) return <NavItems {...props} pathname={pathname} />;
   return (
     <Suspense fallback={<NavItems {...props} pathname={pathname} />}>
-      <TicketViewParam onView={(view) => <NavItems {...props} pathname={pathname} ticketView={view} />} />
+      <UrlParams>{({ view, team }) => <NavItems {...props} pathname={pathname} ticketView={view} team={team} />}</UrlParams>
     </Suspense>
   );
 }
 
-function NavItems({ collapsed, onNavigate, pathname, ticketView }: { collapsed: boolean; onNavigate?: () => void; pathname: string; ticketView?: string | null }) {
+function NavItems({
+  collapsed,
+  onNavigate,
+  pathname,
+  ticketView,
+  team,
+}: {
+  collapsed: boolean;
+  onNavigate?: () => void;
+  pathname: string;
+  ticketView?: string | null;
+  team?: string | null;
+}) {
   const { data: counts } = useViewCounts();
-  const activeQueue = INBOX_QUEUES.find((q) => pathname === queueHref(q) || q.view === ticketView);
+  const hydrated = useHydrated();
   const under = (base: string) => pathname === base || pathname.startsWith(`${base}/`);
+  // A ticket URL keeps its queue in ?view, so the queue it was opened from stays highlighted.
+  const ticketQueue = pathname.startsWith("/tickets/") ? ticketView : null;
+  const inQueue = under("/inbox") || !!INBOX_QUEUES.find((q) => q.view === ticketQueue);
+  // A team's queue (/inbox/open?team=…) highlights the team rather than All open.
+  const activeTeam = inQueue && team ? team : null;
+  const activeQueue = activeTeam ? undefined : INBOX_QUEUES.find((q) => pathname === queueHref(q) || q.view === ticketQueue);
 
   return (
     <>
-      <div className="space-y-0.5">
+      <div className="space-y-1">
         <NavRow item={OVERVIEW} active={under(OVERVIEW.href)} collapsed={collapsed} onNavigate={onNavigate} />
-        <NavRow item={INBOX} active={under("/inbox") || !!activeQueue} collapsed={collapsed} onNavigate={onNavigate} />
+        <NavRow item={INBOX} active={inQueue} collapsed={collapsed} onNavigate={onNavigate} />
         {!collapsed && (
-          <ul className="space-y-0.5 pt-0.5" aria-label="Inbox queues">
-            {INBOX_QUEUES.map((q) => (
-              <QueueRow key={q.label} queue={q} active={q === activeQueue} count={q.view === "recent" || !counts ? undefined : counts[q.view]} onNavigate={onNavigate} />
-            ))}
+          <ul className="space-y-0.5 pt-1" aria-label="Inbox queues">
+            {INBOX_QUEUES.map((q) => {
+              const QueueIcon = q.icon;
+              return (
+                <SubRow
+                  key={q.view}
+                  href={queueHref(q)}
+                  label={q.label}
+                  icon={<QueueIcon size={16} aria-hidden />}
+                  active={q === activeQueue}
+                  count={q.counted && counts && hydrated ? counts[q.view] : undefined}
+                  onNavigate={onNavigate}
+                />
+              );
+            })}
           </ul>
         )}
       </div>
-      <div className={cn("space-y-0.5", collapsed ? "mt-3 border-t border-line pt-3" : "mt-6")}>
+      {!collapsed && (
+        <div className="mt-3 border-t border-line-soft pt-3">
+          <TeamsGroup activeTeam={activeTeam} onNavigate={onNavigate} />
+        </div>
+      )}
+      <div className={cn("mt-3 space-y-1 border-t pt-3", collapsed ? "border-line" : "border-line-soft")}>
         {MAIN_ITEMS.map((item) => (
-          <NavRow key={item.href} item={item} active={item.available && under(item.href) && !activeQueue} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavRow key={item.href} item={item} active={item.available && under(item.href) && !inQueue} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </div>
     </>
@@ -201,7 +292,7 @@ export function DeskSidebar() {
             </button>
             <DeskLogo />
           </div>
-          <nav className="flex-1 overflow-y-auto px-3 py-3">
+          <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 py-3">
             <Nav collapsed={false} onNavigate={close} />
           </nav>
           <div className="px-3 pt-2 pb-4">

@@ -11,6 +11,7 @@ export function TicketSearch({
   className,
   autoFocus,
   onBlurEmpty,
+  placeholder = "Search tickets, customers, emails…",
 }: {
   value: string;
   onChange: (q: string) => void;
@@ -18,6 +19,7 @@ export function TicketSearch({
   autoFocus?: boolean;
   /** Focus left an empty box (lets a toggled-open search collapse again). */
   onBlurEmpty?: () => void;
+  placeholder?: string;
 }) {
   const [text, setText] = useState(value);
   const [focused, setFocused] = useState(false);
@@ -52,7 +54,7 @@ export function TicketSearch({
           onChange("");
         }
       }}
-      placeholder="Search tickets, customers, emails…"
+      placeholder={placeholder}
       aria-label="Search tickets by ID, subject, customer, contact, email or assignee"
       className={cn("w-full sm:w-[248px]", className)}
     />

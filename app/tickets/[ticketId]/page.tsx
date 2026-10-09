@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { TicketList } from "@/components/tickets/ticket-list";
+import { TicketRoute } from "@/components/tickets/ticket-route";
 import { TicketListFallback } from "@/components/tickets/ticket-list-fallback";
 
 export async function generateMetadata({ params }: PageProps<"/tickets/[ticketId]">): Promise<Metadata> {
@@ -17,7 +17,7 @@ export default function TicketPage() {
   return (
     // The Inbox reads the ticket and queue from the URL, so it renders on the client inside Suspense.
     <Suspense fallback={<TicketListFallback />}>
-      <TicketList />
+      <TicketRoute />
     </Suspense>
   );
 }

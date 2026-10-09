@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { TicketList } from "@/components/tickets/ticket-list";
+import { TicketRoute } from "@/components/tickets/ticket-route";
 import { TicketListFallback } from "@/components/tickets/ticket-list-fallback";
 import { parseTicketQuery } from "@/lib/schemas/ticket";
 import { inboxSlugForView, ticketListHref } from "@/lib/ticket-routes";
@@ -19,7 +19,7 @@ export default async function TicketsPage({ searchParams }: PageProps<"/tickets"
   return (
     // The list reads its state from the URL, so it renders on the client inside Suspense.
     <Suspense fallback={<TicketListFallback />}>
-      <TicketList />
+      <TicketRoute />
     </Suspense>
   );
 }

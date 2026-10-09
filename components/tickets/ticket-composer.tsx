@@ -6,10 +6,13 @@ import {
   AtIcon,
   BookOpenTextIcon,
   CaretDownIcon,
+  ChatTextIcon,
   DotsThreeIcon,
+  ImageIcon,
   LinkSimpleIcon,
   ListBulletsIcon,
   PaperclipIcon,
+  SmileyIcon,
   TextBIcon,
   TextItalicIcon,
   TrashIcon,
@@ -22,9 +25,12 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useAddMessage } from "@/hooks/use-ticket";
 import { useRecordSavedReplyUse, useSavedReplies } from "@/hooks/use-saved-replies";
@@ -80,6 +86,7 @@ export function TicketComposer({
   const [files, setFiles] = useState<Draft[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
+  const imageInput = useRef<HTMLInputElement>(null);
   const send = useAddMessage(ticket.id);
   const actions = useTicketActions(ticket);
   const { data: savedReplies } = useSavedReplies();
@@ -230,80 +237,37 @@ export function TicketComposer({
   };
 
   return (
-    <section
-      aria-label={internal ? "Add internal note" : "Reply to customer"}
-      className={cn(
-        "rounded-xl border border-line-soft bg-card transition-colors focus-within:border-desk",
-        internal && "border-[#FCD34D] bg-[#FFFBEB] focus-within:border-[#F59E0B]",
-      )}
-    >
-      {/* Mode switch + tools */}
-      <div className="flex items-center justify-between gap-2 border-b border-line-soft px-3">
-        <div className="flex" role="tablist" aria-label="Message type">
-          {(
-            [
-              ["public", "Reply"],
-              ["internal", "Internal note"],
-            ] as const
-          ).map(([value, label]) => {
-            const selected = mode === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                role="tab"
-                aria-selected={selected}
-                onClick={() => onModeChange(value)}
-                title={value === "public" ? `To: ${ticket.contact.name} <${ticket.contact.email}>` : "Only visible to support staff"}
-                className={cn(
-                  "-mb-px border-b-2 px-3 py-3 text-body transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action",
-                  selected
-                    ? value === "internal"
-                      ? "border-[#D97706] font-semibold text-[#92400E]"
-                      : "border-desk font-semibold text-ink"
-                    : "border-transparent text-ink-muted hover:text-ink",
-                )}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex items-center gap-0.5">
-          <ToolButton label="Attach files" icon={PaperclipIcon} onClick={() => fileInput.current?.click()} />
-          <ToolButton label="Insert link" icon={LinkSimpleIcon} onClick={() => format("link")} />
-          <ToolButton label="Link knowledge article" icon={BookOpenTextIcon} onClick={() => openPalette("article", null)} />
-          <ToolButton label="Mention a teammate" icon={AtIcon} onClick={() => openPalette("mention", null)} />
-          <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
-          <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger aria-label="More formatting" className={toolClass}>
-                  <DotsThreeIcon size={18} weight="bold" aria-hidden />
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>More</TooltipContent>
-            </Tooltip>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onSelect={() => format("bold")}>
-                <TextBIcon size={15} aria-hidden /> Bold
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => format("italic")}>
-                <TextItalicIcon size={15} aria-hidden /> Italic
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => format("list")}>
-                <ListBulletsIcon size={15} aria-hidden /> Bulleted list
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => openPalette("root", null)}>
-                <span className="w-[15px] text-center font-mono text-[13px]" aria-hidden>/</span> All actions
-              </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" disabled={!body && !files.length} onSelect={reset}>
-                <TrashIcon size={15} aria-hidden /> Discard draft
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <section aria-label={internal ? "Add internal note" : "Reply to customer"}>
+      {/* Mode switch */}
+      <div className="flex items-center border-b border-line-soft" role="tablist" aria-label="Message type">
+        {(
+          [
+            ["public", "Reply"],
+            ["internal", "Internal note"],
+          ] as const
+        ).map(([value, label]) => {
+          const selected = mode === value;
+          return (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => onModeChange(value)}
+              title={value === "public" ? `To: ${ticket.contact.name} <${ticket.contact.email}>` : "Only visible to support staff"}
+              className={cn(
+                "-mb-px border-b-2 px-3 py-2.5 text-[14px] transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-desk-action",
+                selected
+                  ? value === "internal"
+                    ? "border-[#D97706] font-medium text-[#B45309]"
+                    : "border-desk font-medium text-desk"
+                  : "border-transparent text-ink-muted hover:text-ink",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       {showReplyingWarning && (
@@ -354,115 +318,170 @@ export function TicketComposer({
         />
       )}
 
-      <Popover open={!!palette} onOpenChange={(o) => !o && dismissPalette()}>
-        <PopoverAnchor asChild>
-          <div className="mx-3 mt-3 rounded-lg border border-line bg-card focus-within:border-desk">
-            <label htmlFor="composer-body" className="sr-only">
-              {internal ? "Internal note" : `Reply to ${ticket.contact.name}`}
-            </label>
-            <textarea
-              id="composer-body"
-              ref={textareaRef}
-              value={body}
-              onChange={(e) => {
-                if (!body.trim() && e.target.value.trim()) setDraftSince(new Date().toISOString());
-                setBody(e.target.value);
-                if (error) setError(null);
-              }}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                  e.preventDefault();
-                  submit();
-                } else if ((e.key === "/" || e.key === "@") && !e.ctrlKey && !e.metaKey && atWordStart(body, e.currentTarget.selectionStart)) {
-                  e.preventDefault();
-                  openPalette(e.key === "/" ? "root" : "mention", e.key);
-                }
-              }}
-              rows={3}
-              placeholder={internal ? "Type / for actions, @ to mention, or write an internal note…" : "Type / for actions, @ to mention, or write a reply…"}
-              aria-invalid={!!error}
-              aria-describedby={error ? "composer-error" : undefined}
-              aria-haspopup="listbox"
-              className="block max-h-[40vh] min-h-[76px] w-full resize-y rounded-lg bg-transparent px-3 py-2.5 text-body leading-relaxed text-ink placeholder:text-ink-faint focus:outline-none"
-            />
+      <div
+        className={cn(
+          "mt-3 rounded-xl border border-line bg-card transition-colors focus-within:border-desk",
+          internal && "border-[#FCD34D] bg-[#FFFBEB] focus-within:border-[#F59E0B]",
+        )}
+      >
+        <Popover open={!!palette} onOpenChange={(o) => !o && dismissPalette()}>
+          <PopoverAnchor asChild>
+            <div>
+              <label htmlFor="composer-body" className="sr-only">
+                {internal ? "Internal note" : `Reply to ${ticket.contact.name}`}
+              </label>
+              <textarea
+                id="composer-body"
+                ref={textareaRef}
+                value={body}
+                onChange={(e) => {
+                  if (!body.trim() && e.target.value.trim()) setDraftSince(new Date().toISOString());
+                  setBody(e.target.value);
+                  if (error) setError(null);
+                }}
+                onFocus={() => setFocused(true)}
+                onBlur={() => setFocused(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    submit();
+                  } else if ((e.key === "/" || e.key === "@") && !e.ctrlKey && !e.metaKey && atWordStart(body, e.currentTarget.selectionStart)) {
+                    e.preventDefault();
+                    openPalette(e.key === "/" ? "root" : "mention", e.key);
+                  }
+                }}
+                rows={2}
+                placeholder={internal ? "Write an internal note, / for actions, @ to mention..." : "Type a reply, / for actions, @ to mention..."}
+                aria-invalid={!!error}
+                aria-describedby={error ? "composer-error" : undefined}
+                aria-haspopup="listbox"
+                className="block max-h-[30vh] min-h-[52px] w-full resize-y rounded-xl bg-transparent px-3.5 pt-3 pb-1 text-[14px] leading-relaxed text-ink placeholder:text-ink-muted focus:outline-none"
+              />
+            </div>
+          </PopoverAnchor>
+          <PopoverContent
+            align="start"
+            side="top"
+            sideOffset={8}
+            collisionPadding={12}
+            className="w-[300px] gap-0 overflow-hidden rounded-xl p-0"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            {palette && (
+              <ComposerPalette
+                ticket={ticket}
+                view={palette.view}
+                onViewChange={(view) => setPalette((p) => (p ? { ...p, view } : p))}
+                query={paletteQuery}
+                onQueryChange={setPaletteQuery}
+                onDone={closePalette}
+                handlers={{
+                  assign: actions.assign,
+                  setStatus: actions.setStatus,
+                  toggleTag: actions.toggleTag,
+                  insertSavedReply,
+                  insertArticle: (a) => insertBlock(articleLink(a)),
+                  escalate: () => actions.update({ priority: "urgent", addTag: "escalated" }, `#${ticket.ticketNumber} escalated — priority set to Urgent`),
+                  closeTicket: () => actions.setStatus("closed"),
+                  mention: (agent) => insertAt(`@${agent.name} `, palette.caret),
+                }}
+              />
+            )}
+          </PopoverContent>
+        </Popover>
+
+        <AttachmentList attachments={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} className="px-3 pt-2" />
+
+        {error && (
+          <p id="composer-error" role="alert" className="px-3.5 pt-2 text-caption font-medium text-destructive">
+            {error}
+          </p>
+        )}
+
+        {/* Tools + send */}
+        <div className="flex items-center justify-between gap-2 px-2 pt-1 pb-2">
+          <div className="flex items-center gap-0.5">
+            <ToolButton label="Attach files" icon={PaperclipIcon} onClick={() => fileInput.current?.click()} />
+            <ToolButton label="Attach images" icon={ImageIcon} onClick={() => imageInput.current?.click()} />
+            <input ref={fileInput} type="file" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+            <input ref={imageInput} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+            <EmojiButton onPick={(emoji) => insertAt(emoji)} />
+            <DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger aria-label="More tools" className={toolClass}>
+                    <DotsThreeIcon size={20} weight="bold" aria-hidden />
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>More</TooltipContent>
+              </Tooltip>
+              <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <ChatTextIcon size={15} aria-hidden /> Saved replies
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-[60vh] w-72 overflow-y-auto">
+                    <DropdownMenuLabel className="text-nav-group-label text-ink-muted uppercase">Insert a saved reply</DropdownMenuLabel>
+                    {!savedReplies && <DropdownMenuItem disabled>Loading saved replies…</DropdownMenuItem>}
+                    {savedReplies?.map((r) => (
+                      <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.id, r.body)} className="flex-col items-start gap-0.5">
+                        <span className="flex w-full items-center gap-2">
+                          <span className="flex-1 font-medium">{r.name}</span>
+                          <code className="text-[11px] text-ink-muted">{r.shortcut}</code>
+                        </span>
+                        <span className="line-clamp-1 text-caption text-ink-muted">{r.body}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+                <DropdownMenuItem onSelect={() => openPalette("article", null)}>
+                  <BookOpenTextIcon size={15} aria-hidden /> Link knowledge article
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => openPalette("mention", null)}>
+                  <AtIcon size={15} aria-hidden /> Mention a teammate
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => format("bold")}>
+                  <TextBIcon size={15} aria-hidden /> Bold
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => format("italic")}>
+                  <TextItalicIcon size={15} aria-hidden /> Italic
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => format("list")}>
+                  <ListBulletsIcon size={15} aria-hidden /> Bulleted list
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => format("link")}>
+                  <LinkSimpleIcon size={15} aria-hidden /> Insert link
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => openPalette("root", null)}>
+                  <span className="w-[15px] text-center font-mono text-[13px]" aria-hidden>/</span> All actions
+                </DropdownMenuItem>
+                <DropdownMenuItem variant="destructive" disabled={!body && !files.length} onSelect={reset}>
+                  <TrashIcon size={15} aria-hidden /> Discard draft
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </PopoverAnchor>
-        <PopoverContent
-          align="end"
-          side="bottom"
-          sideOffset={-28}
-          collisionPadding={12}
-          className="w-[300px] gap-0 overflow-hidden rounded-xl p-0"
-          onCloseAutoFocus={(e) => e.preventDefault()}
-        >
-          {palette && (
-            <ComposerPalette
-              ticket={ticket}
-              view={palette.view}
-              onViewChange={(view) => setPalette((p) => (p ? { ...p, view } : p))}
-              query={paletteQuery}
-              onQueryChange={setPaletteQuery}
-              onDone={closePalette}
-              handlers={{
-                assign: actions.assign,
-                setStatus: actions.setStatus,
-                toggleTag: actions.toggleTag,
-                insertSavedReply,
-                insertArticle: (a) => insertBlock(articleLink(a)),
-                escalate: () => actions.update({ priority: "urgent", addTag: "escalated" }, `#${ticket.ticketNumber} escalated — priority set to Urgent`),
-                closeTicket: () => actions.setStatus("closed"),
-                mention: (agent) => insertAt(`@${agent.name} `, palette.caret),
-              }}
-            />
-          )}
-        </PopoverContent>
-      </Popover>
 
-      <AttachmentList attachments={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} className="px-3 pt-3" />
-
-      {error && (
-        <p id="composer-error" role="alert" className="px-4 pt-2 text-caption font-medium text-destructive">
-          {error}
-        </p>
-      )}
-
-      <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-3">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex h-10 items-center gap-2 rounded-lg border border-line bg-card px-3.5 text-button text-ink transition-colors hover:border-desk focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action data-[state=open]:border-desk">
-            Saved replies
-            <CaretDownIcon size={13} aria-hidden className="text-ink-muted" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-72">
-            <DropdownMenuLabel className="text-nav-group-label text-ink-muted uppercase">Insert a saved reply</DropdownMenuLabel>
-            {!savedReplies && <DropdownMenuItem disabled>Loading saved replies…</DropdownMenuItem>}
-            {savedReplies?.map((r) => (
-              <DropdownMenuItem key={r.id} onSelect={() => insertSavedReply(r.id, r.body)} className="flex-col items-start gap-0.5">
-                <span className="flex w-full items-center gap-2">
-                  <span className="flex-1 font-medium">{r.name}</span>
-                  <code className="text-[11px] text-ink-muted">{r.shortcut}</code>
-                </span>
-                <span className="line-clamp-1 text-caption text-ink-muted">{r.body}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="flex items-center gap-3">
-          <span className="hidden text-caption text-ink-muted xl:inline">Ctrl + Enter to {internal ? "add note" : "send"}</span>
           {internal ? (
-            <button type="button" onClick={() => submit()} disabled={send.isPending} className={cn(sendClass, "rounded-lg bg-[#B45309] hover:bg-[#92400E]")}>
+            <button
+              type="button"
+              onClick={() => submit()}
+              disabled={send.isPending}
+              title="Ctrl + Enter"
+              className={cn(sendClass, "rounded-lg bg-[#B45309] hover:bg-[#92400E]")}
+            >
               {send.isPending ? "Adding…" : "Add note"}
             </button>
           ) : (
             <div className="flex">
-              <button type="button" onClick={() => submit()} disabled={send.isPending} className={cn(sendClass, "rounded-l-lg")}>
+              <button type="button" onClick={() => submit()} disabled={send.isPending} title="Ctrl + Enter" className={cn(sendClass, "rounded-l-lg px-7")}>
                 {send.isPending ? "Sending…" : "Send"}
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger disabled={send.isPending} aria-label="More send options" className={cn(sendClass, "rounded-r-lg border-l border-l-white/30 px-2.5")}>
-                  <CaretDownIcon size={13} weight="bold" aria-hidden />
+                  <CaretDownIcon size={14} weight="bold" aria-hidden />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   {SEND_AND_SET.filter((s) => s !== ticket.status).map((s) => (
@@ -484,7 +503,7 @@ const sendClass =
   "inline-flex h-10 items-center justify-center bg-desk px-5 text-button font-semibold text-white transition-colors hover:bg-desk-press focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-desk-action disabled:opacity-60";
 
 const toolClass =
-  "inline-flex size-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-desk-tint hover:text-desk focus-visible:outline-2 focus-visible:outline-desk-action data-[state=open]:bg-desk-tint";
+  "inline-flex size-9 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-desk-tint hover:text-desk focus-visible:outline-2 focus-visible:outline-desk-action data-[state=open]:bg-desk-tint";
 
 /** Inline collision message inside the composer — awareness, not a lock. */
 function CollisionNotice({ text, actions, tone = "warn" }: { text: string; actions: ReactNode; tone?: "warn" | "info" }) {
@@ -526,10 +545,48 @@ function ToolButton({ label, icon: IconCmp, onClick }: { label: string; icon: Ic
     <Tooltip>
       <TooltipTrigger asChild>
         <button type="button" onClick={onClick} aria-label={label} className={toolClass}>
-          <IconCmp size={17} aria-hidden />
+          <IconCmp size={20} aria-hidden />
         </button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  );
+}
+
+const EMOJIS = ["😀", "😊", "🙂", "😉", "🙏", "👍", "👋", "🎉", "✅", "❤️", "🙌", "💡", "⏳", "📎", "🚀", "😅"];
+
+/** Small emoji picker; inserts at the caret. */
+function EmojiButton({ onPick }: { onPick: (emoji: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <PopoverTrigger aria-label="Insert emoji" className={toolClass}>
+            <SmileyIcon size={20} aria-hidden />
+          </PopoverTrigger>
+        </TooltipTrigger>
+        <TooltipContent>Emoji</TooltipContent>
+      </Tooltip>
+      <PopoverContent align="start" side="top" className="w-auto rounded-xl p-2" onCloseAutoFocus={(e) => e.preventDefault()}>
+        <div className="grid grid-cols-8 gap-0.5" role="listbox" aria-label="Emoji">
+          {EMOJIS.map((e) => (
+            <button
+              key={e}
+              type="button"
+              role="option"
+              aria-selected={false}
+              onClick={() => {
+                onPick(e);
+                setOpen(false);
+              }}
+              className="inline-flex size-8 items-center justify-center rounded-md text-[18px] hover:bg-desk-tint focus-visible:outline-2 focus-visible:outline-desk-action"
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

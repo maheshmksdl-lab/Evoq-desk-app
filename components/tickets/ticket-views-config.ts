@@ -13,6 +13,7 @@ import {
   UsersIcon,
   ArchiveIcon,
   ClockCounterClockwiseIcon,
+  SparkleIcon,
 } from "@phosphor-icons/react/dist/ssr";
 import type { TicketView } from "@/lib/schemas/ticket";
 
@@ -53,6 +54,12 @@ export const VIEW_META: Record<TicketView, ViewMeta> = {
     description: "Every open ticket waiting on the support team.",
     icon: TrayIcon,
     empty: { title: "No open tickets", hint: "Nothing is waiting on the support team right now." },
+  },
+  new: {
+    label: "New",
+    description: "Open tickets that haven't had a first response yet.",
+    icon: SparkleIcon,
+    empty: { title: "No new tickets", hint: "Every open ticket has had a first response." },
   },
   pending: {
     label: "Waiting",
