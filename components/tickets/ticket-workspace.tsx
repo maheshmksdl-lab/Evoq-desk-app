@@ -59,7 +59,7 @@ import { useTicket, useUpdateTicket } from "@/hooks/use-ticket";
 import { useLookups } from "@/hooks/use-tickets";
 import { focusClock } from "@/lib/sla";
 import { CURRENT_AGENT_ID } from "@/lib/mock-data/agents";
-import { KNOWLEDGE_ARTICLES, suggestArticles, type KnowledgeArticle } from "@/lib/mock-data/knowledge";
+import { publishedArticles, suggestArticles, type KnowledgeArticle } from "@/lib/mock-data/knowledge";
 import { PRIORITY_META, SOURCE_LABEL, STATUS_META } from "@/lib/ticket-meta";
 import { ticketHref } from "@/lib/ticket-routes";
 import type { Ticket } from "@/lib/types/ticket";
@@ -816,7 +816,7 @@ function ContactRow({ icon: IconCmp, href, copyLabel, copyText, children }: { ic
 
 function SuggestedKnowledge({ suggested, onInsert }: { suggested: KnowledgeArticle[]; onInsert: (a: KnowledgeArticle) => void }) {
   const [all, setAll] = useState(false);
-  const articles = all ? [...suggested, ...KNOWLEDGE_ARTICLES.filter((a) => !suggested.includes(a))] : suggested;
+  const articles = all ? [...suggested, ...publishedArticles().filter((a) => !suggested.includes(a))] : suggested;
 
   return (
     <div>

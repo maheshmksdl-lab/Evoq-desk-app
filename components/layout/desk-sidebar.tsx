@@ -45,19 +45,6 @@ function NavRow({ item, active, collapsed, onNavigate }: { item: NavItem; active
     </>
   );
 
-  if (!item.available) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span aria-disabled="true" tabIndex={0} className={cn(cls, "cursor-default")}>
-            {body}
-            <span className="sr-only"> — coming soon</span>
-          </span>
-        </TooltipTrigger>
-        <TooltipContent side="right">{item.label} · coming soon</TooltipContent>
-      </Tooltip>
-    );
-  }
   return (
     <RailTip show={collapsed} label={item.label}>
       <Link href={item.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={cls}>
@@ -211,7 +198,7 @@ function NavItems({
       )}
       <div className={cn("mt-3 space-y-1 border-t pt-3", collapsed ? "border-line" : "border-line-soft")}>
         {MAIN_ITEMS.map((item) => (
-          <NavRow key={item.href} item={item} active={item.available && under(item.href) && !inQueue} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavRow key={item.href} item={item} active={under(item.href) && !inQueue} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </div>
     </>

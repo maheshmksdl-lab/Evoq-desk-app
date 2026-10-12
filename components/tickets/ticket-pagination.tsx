@@ -25,6 +25,7 @@ export function TicketPagination({
   onPage,
   onPageSize,
   compact = false,
+  noun = "tickets",
 }: {
   page: number;
   pageCount: number;
@@ -34,11 +35,13 @@ export function TicketPagination({
   onPageSize: (s: (typeof PAGE_SIZES)[number]) => void;
   /** Narrow queue column beside an open ticket: count and pages only, stacked. */
   compact?: boolean;
+  /** What is being counted ("1–25 of 80 tickets"). */
+  noun?: string;
 }) {
   return (
     <div className={cn("flex flex-col items-center justify-between gap-3 border-t border-line-soft px-4 py-3", !compact && "sm:flex-row sm:px-5")}>
       <p className="text-[13px] text-ink-muted" aria-live="polite">
-        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} tickets
+        {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total} {noun}
       </p>
       <div className="flex flex-wrap items-center justify-center gap-3">
         {!compact && <FilterSelect

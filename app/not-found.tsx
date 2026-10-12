@@ -9,7 +9,7 @@ export default function NotFound() {
       <EmptyState
         icon={CompassIcon}
         title="This page isn't available"
-        hint="The page may have moved, or the module isn't part of Desk yet."
+        hint="The page may have moved, or the link is wrong."
         action={
           <Button asChild>
             <Link href="/tickets">Go to tickets</Link>

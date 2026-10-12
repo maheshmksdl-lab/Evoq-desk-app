@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import type { Icon } from "@phosphor-icons/react";
-import { LightningIcon, MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
+import { BellIcon, LightningIcon, MagnifyingGlassIcon } from "@phosphor-icons/react/dist/ssr";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { VIEW_META } from "@/components/tickets/ticket-views-config";
 import { isApplePlatform } from "@/hooks/use-keyboard-shortcuts";
@@ -14,6 +14,7 @@ import { ACTIONS, formatShortcut, type ActionGroup, type ActionId } from "@/lib/
 import type { TicketView } from "@/lib/schemas/ticket";
 import { useActions, useRegisterAction } from "./actions-context";
 import { groupHeading, itemClass, SearchResults } from "./global-search";
+import { MAIN_ITEMS, OVERVIEW } from "./nav-config";
 import { useShell } from "./shell-context";
 
 const GO_TO: TicketView[] = ["mine", "unassigned", "team", "open", "pending", "sla_at_risk", "recent", "all"];
@@ -93,6 +94,12 @@ export function QuickActions() {
     hint: counts ? String(counts[v]) : undefined,
     run: () => go(ticketViewHref(v)),
   }));
+  const modules: Item[] = [OVERVIEW, ...MAIN_ITEMS, { label: "Notifications", href: "/notifications", icon: BellIcon }].map((m) => ({
+    id: m.href,
+    label: `Go to ${m.label}`,
+    icon: m.icon,
+    run: () => go(m.href),
+  }));
 
   const term = q.trim().toLowerCase();
   const match = (a: Item) => !term || [a.label, ...(a.keywords ?? [])].some((w) => w.toLowerCase().includes(term));
@@ -131,6 +138,7 @@ export function QuickActions() {
             {group(GROUP_HEADING.Ticket, actionItems("Ticket"))}
             {group(GROUP_HEADING.General, actionItems("General"))}
             {group("Go to", views)}
+            {group("Modules", modules)}
             {term.length >= 2 ? (
               <SearchResults q={q} onPick={go} />
             ) : (

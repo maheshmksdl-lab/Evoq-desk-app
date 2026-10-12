@@ -23,8 +23,6 @@ export interface NavItem {
   label: string;
   href: string;
   icon: Icon;
-  /** Modules not built yet don't navigate (no placeholder pages); they explain themselves on hover. */
-  available: boolean;
 }
 
 /** A queue under Inbox — one ticket view on its own /inbox route, shown with its count. */
@@ -36,9 +34,9 @@ export interface InboxQueue {
   counted?: boolean;
 }
 
-export const OVERVIEW: NavItem = { label: "Overview", href: "/overview", icon: HouseIcon, available: true };
+export const OVERVIEW: NavItem = { label: "Overview", href: "/overview", icon: HouseIcon };
 
-export const INBOX: NavItem = { label: "Inbox", href: "/inbox/open", icon: TrayIcon, available: true };
+export const INBOX: NavItem = { label: "Inbox", href: "/inbox/open", icon: TrayIcon };
 
 export const INBOX_QUEUES: InboxQueue[] = [
   { label: "All open", icon: CircleIcon, view: "open", counted: true },
@@ -51,12 +49,12 @@ export const INBOX_QUEUES: InboxQueue[] = [
 ];
 
 export const MAIN_ITEMS: NavItem[] = [
-  { label: "Tickets", href: "/tickets", icon: TicketIcon, available: true },
-  { label: "Customers", href: "/customers", icon: UsersThreeIcon, available: false },
-  { label: "Knowledge", href: "/knowledge", icon: BookOpenIcon, available: false },
-  { label: "Reports", href: "/reports", icon: ChartLineUpIcon, available: false },
-  { label: "Automations", href: "/automations", icon: RobotIcon, available: false },
-  { label: "Settings", href: "/settings", icon: GearSixIcon, available: false },
+  { label: "Tickets", href: "/tickets", icon: TicketIcon },
+  { label: "Customers", href: "/customers", icon: UsersThreeIcon },
+  { label: "Knowledge", href: "/knowledge", icon: BookOpenIcon },
+  { label: "Reports", href: "/reports", icon: ChartLineUpIcon },
+  { label: "Automations", href: "/automations", icon: RobotIcon },
+  { label: "Settings", href: "/settings", icon: GearSixIcon },
 ];
 
 export const queueHref = (q: InboxQueue) => viewPath(q.view);

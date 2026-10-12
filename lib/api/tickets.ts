@@ -512,7 +512,7 @@ export async function getOverview(range: OverviewRange = "today"): Promise<Overv
       })
       .sort((a, b) => b.message.timestamp.localeCompare(a.message.timestamp))
       .slice(0, 4),
-    articles: [...KNOWLEDGE_ARTICLES].sort((a, b) => b.uses - a.uses).slice(0, 3),
+    articles: KNOWLEDGE_ARTICLES.filter((a) => a.status === "published").sort((a, b) => b.uses - a.uses).slice(0, 3),
     channels: [...channels].map(([source, count]) => ({ source, count })),
     breached: rows.filter((t) => matchesView(t, "overdue")).length,
   };
@@ -521,12 +521,13 @@ export async function getOverview(range: OverviewRange = "today"): Promise<Overv
 export interface SearchResults {
   tickets: TicketSummary[];
   customers: { customer: Customer; contacts: Contact[]; openTickets: number }[];
+  articles: KnowledgeArticle[];
 }
 
 export async function searchDesk(q: string): Promise<SearchResults> {
   await delay(90);
   const term = q.trim().toLowerCase();
-  if (!term) return { tickets: [], customers: [] };
+  if (!term) return { tickets: [], customers: [], articles: [] };
   const now = Date.now();
   const tickets = db()
     .map((t) => toSummary(t, now))
@@ -546,7 +547,10 @@ export async function searchDesk(q: string): Promise<SearchResults> {
   })
     .filter((x) => x !== null)
     .slice(0, 4);
-  return { tickets, customers };
+  const articles = KNOWLEDGE_ARTICLES.filter(
+    (a) => a.status === "published" && [a.title, a.summary, ...a.keywords].join(" ").toLowerCase().includes(term),
+  ).slice(0, 3);
+  return { tickets, customers, articles };
 }
 
 export interface Lookups {
@@ -749,6 +753,39 @@ export async function mergeTicket(primaryId: string, secondaryId: string): Promi
   });
   log(primary, "merged", `Merged #${secondary.ticketNumber} into this ticket`);
   return toTicket(primary, Date.now());
+}
+
+// ── Shared with the other Desk modules ───────────────────────────────
+
+/**
+ * Every ticket as a list row, evaluated now. Customers, Reports and
+ * Automations read the same store, so a change made in the Inbox shows up
+ * there too. Reports pass `analytics` to leave out spam and the extra listing
+ * tickets, exactly as the Overview does.
+ */
+export function ticketRows({ analytics = false }: { analytics?: boolean } = {}): TicketSummary[] {
+  const now = Date.now();
+  return db()
+    .filter((t) => !t.spam && (!analytics || !LISTING_ONLY_TICKET_IDS.has(t.id)))
+    .map((t) => toSummary(t, now));
+}
+
+/** Raw records (activities, SLA stops) for the analytics that need history. */
+export function ticketRecords({ analytics = false }: { analytics?: boolean } = {}): readonly TicketRecord[] {
+  return db().filter((t) => !t.spam && (!analytics || !LISTING_ONLY_TICKET_IDS.has(t.id)));
+}
+
+/** Makes a newly created customer / contact known to tickets (requester pickers, rows, search). */
+export function registerCustomer(customer: Customer) {
+  if (!customerById.has(customer.id)) CUSTOMERS.push(customer);
+  else Object.assign(customerById.get(customer.id)!, customer);
+  customerById.set(customer.id, customerById.get(customer.id) ?? customer);
+}
+
+export function registerContact(contact: Contact) {
+  if (!contactById.has(contact.id)) CONTACTS.push(contact);
+  else Object.assign(contactById.get(contact.id)!, contact);
+  contactById.set(contact.id, contactById.get(contact.id) ?? contact);
 }
 
 export async function createTicket(input: CreateTicketInput): Promise<Ticket> {

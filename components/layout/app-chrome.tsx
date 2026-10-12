@@ -8,6 +8,7 @@ import { DeskHeader } from "./desk-header";
 import { DeskSidebar } from "./desk-sidebar";
 import { QuickActions } from "./quick-actions";
 import { ShellContent, ShellProvider } from "./shell-context";
+import { ShortcutsDialog } from "./shortcuts-dialog";
 
 /** The Desk app frame (header, sidebar, quick actions) around every page except the auth screens. */
 export function AppChrome({ children }: { children: ReactNode }) {
@@ -33,6 +34,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
       <DeskSidebar />
       <ShellContent>{children}</ShellContent>
       <QuickActions />
+      <ShortcutsDialog />
     </ShellProvider>
   );
 }

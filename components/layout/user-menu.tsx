@@ -1,8 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { KeyboardIcon, SignOutIcon, UserCircleIcon } from "@phosphor-icons/react/dist/ssr";
-import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { GearSixIcon, KeyboardIcon, SignOutIcon, UserCircleIcon } from "@phosphor-icons/react/dist/ssr";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +12,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useProfile, useUpdateProfile } from "@/hooks/use-desk-modules";
 import { signOut } from "@/lib/auth";
 import { AGENTS, CURRENT_AGENT_ID, TEAMS } from "@/lib/mock-data/agents";
 import { PersonAvatar } from "@/components/shared/person-avatar";
 import { cn } from "@/lib/utils";
+import { useActions } from "./actions-context";
 
 type Availability = "available" | "busy" | "away";
 const AVAILABILITY: { value: Availability; label: string; dot: string }[] = [
@@ -32,13 +33,17 @@ const item = "gap-4 rounded-[10px] px-3.5 py-2.5 text-[0.875rem] font-medium tex
 
 /** Avatar → account menu (ServiceOps user menu). */
 export function UserMenu() {
-  const [availability, setAvailability] = useState<Availability>(me.status);
+  const router = useRouter();
+  const { run } = useActions();
+  // Availability is the agent's status — shared with Settings, the Overview and assignment pickers.
+  const { data: profile } = useProfile();
+  const update = useUpdateProfile();
+  const availability: Availability = profile?.agent.status ?? me.status;
   // A full page load: the in-memory app state (queries, open ticket) goes with the session.
   const logOut = () => {
     signOut();
     window.location.replace("/login");
   };
-  const notInPreview = () => toast.info("Not available in this preview", { description: "Account settings arrive with the Admin module." });
   const dot = AVAILABILITY.find((a) => a.value === availability)!.dot;
 
   return (
@@ -60,7 +65,7 @@ export function UserMenu() {
         <DropdownMenuSeparator className="mx-0 my-0 bg-line" />
         <div className="p-1.5">
           <DropdownMenuLabel className="px-3.5 pt-1.5 pb-1 text-nav-group-label text-ink-muted uppercase">Availability</DropdownMenuLabel>
-          <DropdownMenuRadioGroup value={availability} onValueChange={(v) => setAvailability(v as Availability)}>
+          <DropdownMenuRadioGroup value={availability} onValueChange={(v) => update.mutate({ status: v as Availability })}>
             {AVAILABILITY.map((a) => (
               <DropdownMenuRadioItem key={a.value} value={a.value} className={cn(item, "gap-3")}>
                 <span className={cn("size-2 rounded-full", a.dot)} aria-hidden />
@@ -71,13 +76,13 @@ export function UserMenu() {
         </div>
         <DropdownMenuSeparator className="mx-0 my-0 bg-line" />
         <div className="p-1.5">
-          <DropdownMenuItem onSelect={notInPreview} className={item}>
+          <DropdownMenuItem onSelect={() => router.push("/settings?tab=profile")} className={item}>
             <UserCircleIcon size={18} weight="duotone" aria-hidden /> My account
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => toast("Keyboard shortcuts", { description: "Ctrl K or / — search Desk. On a ticket: R — reply, N — internal note." })}
-            className={item}
-          >
+          <DropdownMenuItem onSelect={() => router.push("/settings")} className={item}>
+            <GearSixIcon size={18} weight="duotone" aria-hidden /> Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => requestAnimationFrame(() => run("shortcut-help"))} className={item}>
             <KeyboardIcon size={18} weight="duotone" aria-hidden /> Keyboard shortcuts
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={logOut} className={cn(item, "text-[#ef4444] focus:text-[#dc2626] [&_svg]:text-current")}>

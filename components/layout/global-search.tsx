@@ -3,7 +3,7 @@
 import { useDeferredValue, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
-import { BuildingsIcon, MagnifyingGlassIcon, TicketIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
+import { BookOpenIcon, BuildingsIcon, MagnifyingGlassIcon, TicketIcon, XIcon } from "@phosphor-icons/react/dist/ssr";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useDeskSearch } from "@/hooks/use-tickets";
 import { useRegisterAction } from "./actions-context";
@@ -24,7 +24,7 @@ export function SearchResults({ q, onPick }: { q: string; onPick: (href: string)
     return <p className="px-4 py-6 text-center text-caption text-ink-muted">Type a ticket ID, subject, customer, contact or email address</p>;
   }
   if (!data && isFetching) return <p className="px-4 py-6 text-center text-body text-ink-muted">Searching…</p>;
-  if (data && !data.tickets.length && !data.customers.length) {
+  if (data && !data.tickets.length && !data.customers.length && !data.articles.length) {
     return <p className="px-4 py-6 text-center text-body text-ink-muted">No matches for “{term}”</p>;
   }
   return (
@@ -47,13 +47,26 @@ export function SearchResults({ q, onPick }: { q: string; onPick: (href: string)
       {!!data?.customers.length && (
         <Command.Group heading="Customers" className={groupHeading}>
           {data.customers.map(({ customer, contacts, openTickets }) => (
-            <Command.Item key={customer.id} value={`c-${customer.id}`} onSelect={() => onPick(`/tickets?customer=${customer.id}`)} className={itemClass}>
+            <Command.Item key={customer.id} value={`c-${customer.id}`} onSelect={() => onPick(`/customers/${customer.id}`)} className={itemClass}>
               <BuildingsIcon size={16} weight="duotone" aria-hidden className="shrink-0 text-ink-muted" />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body text-ink">{customer.name}</span>
                 <span className="block truncate text-caption text-ink-muted">
                   {pluralize(openTickets, "open ticket")} · {contacts.map((c) => c.email).join(", ")}
                 </span>
+              </span>
+            </Command.Item>
+          ))}
+        </Command.Group>
+      )}
+      {!!data?.articles.length && (
+        <Command.Group heading="Knowledge" className={groupHeading}>
+          {data.articles.map((a) => (
+            <Command.Item key={a.id} value={`a-${a.id}`} onSelect={() => onPick(`/knowledge/${a.id}`)} className={itemClass}>
+              <BookOpenIcon size={16} weight="duotone" aria-hidden className="shrink-0 text-ink-muted" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-body text-ink">{a.title}</span>
+                <span className="block truncate text-caption text-ink-muted">{a.summary}</span>
               </span>
             </Command.Item>
           ))}

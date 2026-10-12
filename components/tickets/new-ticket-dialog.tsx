@@ -14,7 +14,13 @@ import { CATEGORY_LABEL, PRIORITY_META, SOURCE_LABEL, TYPE_LABEL } from "@/lib/t
 import { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_SOURCES, TICKET_TYPES } from "@/lib/types/ticket";
 import { cn } from "@/lib/utils";
 
-const NewTicketContext = createContext<{ openNewTicket: () => void }>({ openNewTicket: () => {} });
+interface NewTicketApi {
+  openNewTicket: () => void;
+  /** Opens the drawer with fields filled in — e.g. the requester when starting from a customer. */
+  openNewTicketFor: (prefill: Partial<CreateTicketInput>) => void;
+}
+
+const NewTicketContext = createContext<NewTicketApi>({ openNewTicket: () => {}, openNewTicketFor: () => {} });
 export const useNewTicket = () => useContext(NewTicketContext);
 
 /** Provides `openNewTicket()` to the header and the Tickets page, and hosts the create drawer. */
@@ -22,16 +28,19 @@ export function NewTicketProvider({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   // Remount the form on every open so it starts clean.
   const [session, setSession] = useState(0);
-  const openNewTicket = useCallback(() => {
+  const [prefill, setPrefill] = useState<Partial<CreateTicketInput>>({});
+  const openNewTicketFor = useCallback((next: Partial<CreateTicketInput>) => {
+    setPrefill(next);
     setSession((s) => s + 1);
     setOpen(true);
   }, []);
+  const openNewTicket = useCallback(() => openNewTicketFor({}), [openNewTicketFor]);
   useRegisterAction("create-ticket", openNewTicket);
-  const value = useMemo(() => ({ openNewTicket }), [openNewTicket]);
+  const value = useMemo(() => ({ openNewTicket, openNewTicketFor }), [openNewTicket, openNewTicketFor]);
   return (
     <NewTicketContext.Provider value={value}>
       {children}
-      <NewTicketDrawer key={session} open={open} onOpenChange={setOpen} />
+      <NewTicketDrawer key={session} open={open} onOpenChange={setOpen} prefill={prefill} />
     </NewTicketContext.Provider>
   );
 }
@@ -51,11 +60,11 @@ const INITIAL: CreateTicketInput = {
 type Errors = Partial<Record<keyof CreateTicketInput, string>>;
 
 /** Create-ticket side drawer — the ServiceOps "New job" drawer pattern, validated with Zod. */
-function NewTicketDrawer({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+function NewTicketDrawer({ open, onOpenChange, prefill }: { open: boolean; onOpenChange: (o: boolean) => void; prefill: Partial<CreateTicketInput> }) {
   const router = useRouter();
   const { data: lookups } = useLookups();
   const create = useCreateTicket();
-  const [values, setValues] = useState<CreateTicketInput>(INITIAL);
+  const [values, setValues] = useState<CreateTicketInput>(() => ({ ...INITIAL, ...prefill }));
   const [errors, setErrors] = useState<Errors>({});
 
   const set = <K extends keyof CreateTicketInput>(key: K, value: CreateTicketInput[K]) => {

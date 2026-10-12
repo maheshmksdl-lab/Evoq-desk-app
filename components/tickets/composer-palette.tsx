@@ -18,7 +18,7 @@ import { itemClass } from "@/components/layout/global-search";
 import { PersonAvatar } from "@/components/shared/person-avatar";
 import { useSavedReplies } from "@/hooks/use-saved-replies";
 import { useLookups } from "@/hooks/use-tickets";
-import { KNOWLEDGE_ARTICLES, suggestArticles, type KnowledgeArticle } from "@/lib/mock-data/knowledge";
+import { publishedArticles, suggestArticles, type KnowledgeArticle } from "@/lib/mock-data/knowledge";
 import { SUGGESTED_TAGS } from "@/lib/mock-data/tickets";
 import { STATUS_META } from "@/lib/ticket-meta";
 import { TICKET_STATUSES, type Agent, type Ticket, type TicketStatus } from "@/lib/types/ticket";
@@ -95,7 +95,7 @@ export function ComposerPalette({
   const { data: savedReplies } = useSavedReplies();
   const [articlesAll] = useState(() => {
     const suggested = suggestArticles(ticket, 8);
-    return [...suggested, ...KNOWLEDGE_ARTICLES.filter((a) => !suggested.includes(a))];
+    return [...suggested, ...publishedArticles().filter((a) => !suggested.includes(a))];
   });
   const done = (fn: () => void) => () => {
     fn();

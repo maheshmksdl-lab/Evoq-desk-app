@@ -28,3 +28,27 @@ export async function recordSavedReplyUse(id: string): Promise<void> {
   const reply = db().find((r) => r.id === id);
   if (reply) reply.usageCount += 1;
 }
+
+export type SavedReplyInput = Pick<SavedReply, "name" | "shortcut" | "category" | "body">;
+
+/** Creates or updates a saved reply. Shortcuts are unique, since the composer expands them by name. */
+export async function saveSavedReply(input: SavedReplyInput, id?: string): Promise<SavedReply> {
+  await delay();
+  const existing = id ? db().find((r) => r.id === id) : undefined;
+  const reply = savedReplySchema.parse({
+    usageCount: 0,
+    ...existing,
+    ...input,
+    id: existing?.id ?? `sr-${Date.now().toString(36)}`,
+    updatedAt: new Date().toISOString(),
+  });
+  if (db().some((r) => r.id !== reply.id && r.shortcut === reply.shortcut)) throw new Error(`${reply.shortcut} is already used by another saved reply.`);
+  if (existing) Object.assign(existing, reply);
+  else db().push(reply);
+  return reply;
+}
+
+export async function deleteSavedReply(id: string): Promise<void> {
+  await delay();
+  store = db().filter((r) => r.id !== id);
+}
